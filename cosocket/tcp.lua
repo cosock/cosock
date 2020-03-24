@@ -50,9 +50,7 @@ end)
 
 m.bind = pass_through_async("bind")
 
-function m:close()
-  error("unimplemented")
-end
+m.close = pass_through_async("close")
 
 m.connect = pass_through_async("connect")
 

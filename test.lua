@@ -30,6 +30,41 @@ function spawn_client(ip, port)
   end)
 end
 
+function spawn_double_client(ip, port)
+  cosock.spawn(function()
+    print("running client")
+    local t1 = socket.tcp()
+    local t2 = socket.tcp()
+    assert(t1)
+    assert(t2)
+
+    print("dclient connect")
+    local status, msg = t1:connect(ip, port)
+    assert(status, "connect: "..tostring(msg))
+    local status, msg = t2:connect(ip, port)
+    assert(status, "connect: "..tostring(msg))
+
+    print("dclient send")
+    t1:send("foo\n")
+    t2:send("bar\n")
+    t1:send("baz\n")
+
+    local data, err = t1:receive()
+    print("dclient reveived:", data, err)
+    assert(data == "foo")
+
+    local data, err = t1:receive()
+    print("dclient reveived:", data, err)
+    assert(data == "baz")
+
+    local data, err = t2:receive()
+    print("dclient reveived:", data, err)
+    assert(data == "bar")
+
+    print("dclient exit")
+  end)
+end
+
 cosock.spawn(function()
   print("running server")
   local t = socket.tcp()
@@ -43,16 +78,21 @@ cosock.spawn(function()
 
   print("spawn client")
   spawn_client(ip, port)
+  spawn_double_client(ip, port)
 
-  print("server accept")
-  local s = t:accept()
-  print("server start recv")
-  local d = s:receive()
-  print("server received:", d)
-  repeat
-    if d then s:send(d.."\n") end
-    d = s:receive()
-  until d == nil
+  for i = 1,3 do
+    print("server accept")
+    local s = t:accept()
+    print("server start recv")
+      cosock.spawn(function()
+      local d = s:receive()
+      print("server received:", d)
+      repeat
+        if d then s:send(d.."\n") end
+        d = s:receive()
+      until d == nil
+    end)
+  end
 end)
 
 cosock.run()
