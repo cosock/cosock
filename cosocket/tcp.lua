@@ -2,13 +2,13 @@ local lsocket = require "socket"
 
 local m = {}
 
-local readmethods = {
+local recvmethods = {
   receive = true,
   receivefrom = true,
   accept = true,
 }
 
-local writemethods = {
+local sendmethods = {
   send = true,
   sendto = true,
   connect = true, --TODO: right?
@@ -30,7 +30,10 @@ local function pass_through_async(method, transform)
       local status = ret[1]
       local err = ret[2]
       if err == "timeout" then
-        local rterr = coroutine.yield(self)
+        print("yield: "..method.." (".."".."")
+        local _, _, rterr = coroutine.yield(recvmethods[method] and {self} or {},
+                                            sendmethods[method] and {self} or {})
+
         if rterr then return nil --[[ TODO: value? ]], rterr end
       elseif status and transform then
         return transform(table.unpack(ret))
