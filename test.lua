@@ -10,7 +10,7 @@ local socket = cosock.socket --[[
 local socket = require "socket"
 --]]
 
-function spawn_client(ip, port)
+local function spawn_client(ip, port)
   cosock.spawn(function()
     print("client running")
     local t = socket.tcp()
@@ -32,7 +32,7 @@ function spawn_client(ip, port)
   end, "client")
 end
 
-function spawn_double_client(ip, port)
+local function spawn_double_client(ip, port)
   cosock.spawn(function()
     print("dclient running")
     local t1 = socket.tcp()
@@ -41,10 +41,15 @@ function spawn_double_client(ip, port)
     assert(t2)
 
     print("dclient connect")
+    do
     local status, msg = t1:connect(ip, port)
     assert(status, "connect: "..tostring(msg))
+    end
+
+    do
     local status, msg = t2:connect(ip, port)
     assert(status, "connect: "..tostring(msg))
+    end
 
     print("dclient send")
     t1:send("foo\n")
@@ -55,8 +60,8 @@ function spawn_double_client(ip, port)
 
     while true do
       local recvt = {}
-      for socket, list in pairs(expect_recv) do
-        if #list > 0 then table.insert(recvt, socket) end
+      for sock, list in pairs(expect_recv) do
+        if #list > 0 then table.insert(recvt, sock) end
       end
       if #recvt == 0 then break end
 
@@ -70,7 +75,8 @@ function spawn_double_client(ip, port)
       assert(#recvr > 0, "empty recvr")
 
       for _, t in pairs(recvr) do
-        local data, err = t:receive()
+        local data, rerr = t:receive()
+	assert(not rerr, rerr)
         print("dclient received:", data)
         for k,v in pairs(expect_recv) do print(k,v) end
         local expdata = table.remove(expect_recv[t], 1)
@@ -78,7 +84,7 @@ function spawn_double_client(ip, port)
       end
 
       local sum = 0
-      for _skt, list in pairs(expect_recv) do
+      for _, list in pairs(expect_recv) do
         sum = sum + #list
       end
       print("@@@@@@@@@@@@@@@ dclient left#:", sum)

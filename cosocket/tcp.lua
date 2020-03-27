@@ -40,7 +40,7 @@ local function pass_through_async(method, transform)
       else
         return table.unpack(ret)
       end
-    until forever
+    until nil
   end
 end
 

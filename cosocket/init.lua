@@ -28,9 +28,7 @@ m.sink = function()
   error("unimplemented")
 end
 
-m.gettime = function()
-  error("unimplemented")
-end
+m.gettime = luasocket.gettime
 
 m.dns = {}
 
@@ -42,8 +40,8 @@ m.select = function(recvt, sendt, timeout)
   return coroutine.yield(recvt, sendt, timeout)
 end
 
-m.sleep = function()
-  error("unimplemented")
+m.sleep = function(time)
+  m.select(nil, nil, time)
 end
 
 m.newtry = function()

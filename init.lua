@@ -7,6 +7,7 @@ local threadnames = {}
 local threadswaitingfor = {} -- what each thread is waiting for
 local threadsocketmap = {} -- maps threads from which socket is being waiting
 local socketwrappermap = {} -- from native socket to async socket TODO: weak ref
+local threaderrorhandler = nil
 
 local m = {}
 
@@ -21,7 +22,6 @@ end
 
 function m.run()
   local recvr, sendr = {}, {} -- ready to send/recv sockets from luasocket.select
-  local threadt = {} -- recvt & sendt by thread
   while true do
     print("====================================================")
     local deadthreads = {}
@@ -30,12 +30,12 @@ function m.run()
 
     -- threads can't be added while iterating through the main list
     for _, thread in pairs(newthreads) do
-      table.insert(threads, thread)
+      threads[thread] = thread
       wakethreads[thread] = {} -- empty no ready sockets or errors
     end
     newthreads = {}
 
-    for i,lskt in ipairs(recvr) do
+    for _,lskt in ipairs(recvr) do
       print("**** recvr ****")
       local skt = socketwrappermap[lskt]
       assert(skt)
@@ -47,7 +47,7 @@ function m.run()
       table.insert(wakethreads[srcthreads.recv].recvr, skt)
     end
 
-    for i,lskt in ipairs(sendr) do
+    for _,lskt in ipairs(sendr) do
       local skt = socketwrappermap[lskt]
       print("**** sendr ****", skt)
       assert(skt)
@@ -73,7 +73,7 @@ function m.run()
           -- note which sockets this thread is waiting on
           threadswaitingfor[thread] = {recvt = threadrecvt, sendt = threadsendt, timeout = threadtimeout}
         elseif coroutine.status(thread) == "dead" then
-          if not status and not thread_error_handler then
+          if not status and not threaderrorhandler then
             local err = threadrecvt_or_err
             if debug and debug.traceback then
               print(debug.traceback(thread, err))
@@ -82,8 +82,8 @@ function m.run()
             end
             os.exit(-1)
           end
-          print("dead", threadnames[thread] or thread, status, recvt_or_err)
-          table.insert(deadthreads, index)
+          print("dead", threadnames[thread] or thread, status, threadrecvt_or_err)
+          table.insert(deadthreads, thread)
         end
       else
         print("warning: non-suspended thread encountered", coroutine.status(thread))
@@ -93,8 +93,8 @@ function m.run()
     -- threads can't be removed while iterating through the main list
     -- reverse sort, must pop larger indicies before smaller
     table.sort(deadthreads, function(a, b) return a > b end)
-    for _, threadindex in ipairs(deadthreads) do
-      table.remove(threads, threadindex)
+    for _, thread in ipairs(deadthreads) do
+      threads[thread] = nil
     end
 
     local running = false
