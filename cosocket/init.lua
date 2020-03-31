@@ -11,7 +11,7 @@ local tcp = assert(require "cosocket.tcp")
 local m = {}
 
 -- extraced from luasocket 3.0-rc1
-m._VERSION = "LuaSocket 3.0-rc1"
+m._VERSION = "cosocket 3.0-rc1"
 m._SETSIZE = 1024
 m.BLOCKSIZE = 2048
 

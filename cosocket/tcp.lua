@@ -22,7 +22,7 @@ setmetatable(m, {__call = function()
 end})
 
 
-local function pass_through_async(method, transform)
+local function passthrough(method, transform)
   return function(self, ...)
     repeat
       local isock = self.inner_sock
@@ -46,38 +46,38 @@ local function pass_through_async(method, transform)
 end
 
 
-m.accept = pass_through_async("accept", function(inner_sock)
+m.accept = passthrough("accept", function(inner_sock)
   assert(inner_sock, "transform called on error from accept")
   inner_sock:settimeout(0)
   return setmetatable({inner_sock = inner_sock}, { __index = m})
 end)
 
-m.bind = pass_through_async("bind")
+m.bind = passthrough("bind")
 
-m.close = pass_through_async("close")
+m.close = passthrough("close")
 
-m.connect = pass_through_async("connect")
+m.connect = passthrough("connect")
 
-m.getpeername = pass_through_async("getpeername")
+m.getpeername = passthrough("getpeername")
 
-m.getsockname = pass_through_async("getsockname")
+m.getsockname = passthrough("getsockname")
 
-m.getstats = pass_through_async("getstats")
+m.getstats = passthrough("getstats")
 
-m.listen = pass_through_async("listen")
+m.listen = passthrough("listen")
 
-m.receive = pass_through_async("receive")
+m.receive = passthrough("receive")
 
-m.send = pass_through_async("send")
+m.send = passthrough("send")
 
-m.setoption = pass_through_async("setoption")
+m.setoption = passthrough("setoption")
 
-m.setstats = pass_through_async("setstats")
+m.setstats = passthrough("setstats")
 
 function m:settimeout(timeout)
   self.timeout = timeout
 end
 
-m.shutdown = pass_through_async("shutdown")
+m.shutdown = passthrough("shutdown")
 
 return m
