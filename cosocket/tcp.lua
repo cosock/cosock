@@ -1,4 +1,5 @@
 local lsocket = require "socket"
+local internals = require "cosocket.internals"
 
 local m = {}
 
@@ -21,30 +22,7 @@ setmetatable(m, {__call = function()
   return setmetatable({inner_sock = inner_sock}, { __index = m})
 end})
 
-
-local function passthrough(method, transform)
-  return function(self, ...)
-    repeat
-      local isock = self.inner_sock
-      local ret = table.pack(isock[method](isock, ...))
-      local status = ret[1]
-      local err = ret[2]
-      if err == "timeout" then
-        print("yield: "..method.." (".."".."")
-        local _, _, rterr = coroutine.yield(recvmethods[method] and {self} or {},
-                                            sendmethods[method] and {self} or {},
-                                            self.timeout)
-
-        if rterr then return nil --[[ TODO: value? ]], rterr end
-      elseif status and transform then
-        return transform(table.unpack(ret))
-      else
-        return table.unpack(ret)
-      end
-    until nil
-  end
-end
-
+local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
 
 m.accept = passthrough("accept", function(inner_sock)
   assert(inner_sock, "transform called on error from accept")
