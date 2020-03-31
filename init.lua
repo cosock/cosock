@@ -1,3 +1,8 @@
+--- cosock is a library that provides a coroutine executor for luasocket.
+--- Unlike existing coroutine executors it aims to provoce an as close to
+--- identical to luasocket interface inside coroutines, including APIs like
+--- `select`.
+
 local cosocket = require "cosocket"
 local socket = require "socket"
 
@@ -19,14 +24,15 @@ function m.spawn(fn, name)
   threadnames[thread] = name
   table.insert(newthreads, thread)
 end
-
+-- Implementaion Notes:
+-- This run loop is where all the magic happens
 function m.run()
   local recvr, sendr = {}, {} -- ready to send/recv sockets from luasocket.select
   while true do
     print("====================================================")
-    local deadthreads = {}
-    local wakethreads = {}
-    local sendt, recvt, timeout = {}, {}, nil
+    local deadthreads = {} -- indexed list of thread objects
+    local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
+    local sendt, recvt, timeout = {}, {}, nil -- cumulative values across all threads
 
     -- threads can't be added while iterating through the main list
     for _, thread in pairs(newthreads) do
@@ -92,7 +98,6 @@ function m.run()
 
     -- threads can't be removed while iterating through the main list
     -- reverse sort, must pop larger indicies before smaller
-    table.sort(deadthreads, function(a, b) return a > b end)
     for _, thread in ipairs(deadthreads) do
       threads[thread] = nil
     end
@@ -130,7 +135,7 @@ function m.run()
       -- in case of bugs
       timeout = 1
       print("WARNING: cosock tried to call socket select with no sockets and no timeout"
-        --[[ TODO: for when things actuall work: .." this is a bug, please report it"]])
+        --[[ TODO: for when things actually work: .." this is a bug, please report it"]])
     end
 
     print("start select", #recvt, #sendt, timeout)

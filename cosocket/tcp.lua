@@ -57,15 +57,11 @@ m.close = pass_through_async("close")
 
 m.connect = pass_through_async("connect")
 
-function m:getpeername()
-  error("unimplemented")
-end
+m.getpeername = pass_through_async("getpeername")
 
 m.getsockname = pass_through_async("getsockname")
 
-function m:getstats()
-  error("unimplemented")
-end
+m.getstats = pass_through_async("getstats")
 
 m.listen = pass_through_async("listen")
 
@@ -73,20 +69,14 @@ m.receive = pass_through_async("receive")
 
 m.send = pass_through_async("send")
 
-function m:setoption()
-  error("unimplemented")
-end
+m.setoption = pass_through_async("setoption")
 
-function m:setstats()
-  error("unimplemented")
-end
+m.setstats = pass_through_async("setstats")
 
 function m:settimeout()
-  error("unimplemented")
+  error("async timeouts not yet supported")
 end
 
-function m:shutdown()
-  error("unimplemented")
-end
+m.shutdown = pass_through_async("shutdown")
 
 return m
