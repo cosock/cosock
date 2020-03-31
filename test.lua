@@ -10,92 +10,76 @@ local socket = cosock.socket --[[
 local socket = require "socket"
 --]]
 
-local function spawn_client(ip, port)
+local function nobl_client(ip, port) -- doesn't block at all
   cosock.spawn(function()
-    print("client running")
+    print("nobl client running")
     local t = socket.tcp()
     assert(t)
 
-    print("client connect")
+    print("nobl client connect")
     local status, msg = t:connect(ip, port)
     assert(status, "connect: "..tostring(msg))
 
-    print("client send")
+    print("nobl client send")
     t:send("foo\n")
 
+    t:settimeout(0)
+
     local data, err = t:receive()
-    print("client reveived:", data, err)
-    assert(data == "foo") -- newline is removed because of recving by line (default for `receive`)
-    print("client exit")
+    print("nobl client reveived:", data, err)
+    assert(err == "timeout")
+    print("nobl client exit")
 
     t:close()
-  end, "client")
+  end, "nobl client")
 end
 
-local function spawn_double_client(ip, port)
+local function fast_client(ip, port) -- waits very little
   cosock.spawn(function()
-    print("dclient running")
-    local t1 = socket.tcp()
-    local t2 = socket.tcp()
-    assert(t1)
-    assert(t2)
+    print("fast client running")
+    local t = socket.tcp()
+    assert(t)
 
-    print("dclient connect")
-    do
-    local status, msg = t1:connect(ip, port)
+    print("fast client connect")
+    local status, msg = t:connect(ip, port)
     assert(status, "connect: "..tostring(msg))
-    end
 
-    do
-    local status, msg = t2:connect(ip, port)
+    print("fast client send")
+    t:send("foo\n")
+
+    t:settimeout(0.001)
+
+    local data, err = t:receive()
+    print("fast client reveived:", data, err)
+    assert(err == "timeout")
+    print("fast client exit")
+
+    t:close()
+  end, "fast client")
+end
+
+local function slow_client(ip, port) -- waits longer
+  cosock.spawn(function()
+    print("slow client running")
+    local t = socket.tcp()
+    assert(t)
+
+    print("slow client connect")
+    local status, msg = t:connect(ip, port)
     assert(status, "connect: "..tostring(msg))
-    end
 
-    print("dclient send")
-    t1:send("foo\n")
-    t2:send("bar\n")
-    t1:send("baz\n")
+    print("slow client send")
+    t:send("foo\n")
 
-    local expect_recv = {[t1] = {"foo", "baz"}, [t2] = {"bar"}}
+    t:settimeout(.5)
 
-    while true do
-      local recvt = {}
-      for sock, list in pairs(expect_recv) do
-        if #list > 0 then table.insert(recvt, sock) end
-      end
-      if #recvt == 0 then break end
+    local data, err = t:receive()
+    print("slow client reveived:", data, err)
+    assert(data == "foo") -- newline is removed because of recving by line (default for `receive`)
+    print("slow client exit")
 
-      print("dclient call select")
-      local recvr, sendr, err = socket.select({t1, t2}, nil, nil)
-
-      print("dclient select ret", recvr, sendr, err)
-      assert(not err, err)
-      assert(recvr, "nil recvr")
-      assert(type(recvr) == "table", "non-table recvr")
-      assert(#recvr > 0, "empty recvr")
-
-      for _, t in pairs(recvr) do
-        local data, rerr = t:receive()
-	assert(not rerr, rerr)
-        print("dclient received:", data)
-        for k,v in pairs(expect_recv) do print(k,v) end
-        local expdata = table.remove(expect_recv[t], 1)
-        assert(data == expdata, string.format("wrong data, expected '%s', got '%s'", expdata, data))
-      end
-
-      local sum = 0
-      for _, list in pairs(expect_recv) do
-        sum = sum + #list
-      end
-      print("@@@@@@@@@@@@@@@ dclient left#:", sum)
-      if sum == 0 then break end
-    end
-
-    t1:close()
-    t2:close()
-
-    print("dclient exit")
-  end, "double client")
+    t:close()
+  end, "slow client")
 end
 
 cosock.spawn(function()
@@ -110,8 +94,9 @@ cosock.spawn(function()
   local ip, port = t:getsockname()
 
   print("server spawn clients")
-  spawn_client(ip, port)
-  spawn_double_client(ip, port)
+  nobl_client(ip, port)
+  fast_client(ip, port)
+  slow_client(ip, port)
 
   for i = 1,3 do
     print("server accept")
@@ -123,6 +108,7 @@ cosock.spawn(function()
       local d = s:receive()
       print("coserver received:", d)
       repeat
+        socket.select(nil,nil, 0.25) -- sleep
         if d then s:send(d.."\n") end
         d = s:receive()
       until d == nil

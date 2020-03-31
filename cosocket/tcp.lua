@@ -32,7 +32,8 @@ local function pass_through_async(method, transform)
       if err == "timeout" then
         print("yield: "..method.." (".."".."")
         local _, _, rterr = coroutine.yield(recvmethods[method] and {self} or {},
-                                            sendmethods[method] and {self} or {})
+                                            sendmethods[method] and {self} or {},
+                                            self.timeout)
 
         if rterr then return nil --[[ TODO: value? ]], rterr end
       elseif status and transform then
@@ -73,8 +74,8 @@ m.setoption = pass_through_async("setoption")
 
 m.setstats = pass_through_async("setstats")
 
-function m:settimeout()
-  error("async timeouts not yet supported")
+function m:settimeout(timeout)
+  self.timeout = timeout
 end
 
 m.shutdown = pass_through_async("shutdown")

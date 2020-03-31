@@ -13,6 +13,8 @@ local threadswaitingfor = {} -- what each thread is waiting for
 local threadsocketmap = {} -- maps threads from which socket is being waiting
 local socketwrappermap = {} -- from native socket to async socket TODO: weak ref
 local threaderrorhandler = nil
+local threadtimeouts = {} -- map of thread => timeout info map
+local threadtimeoutlist = {} -- ordered list of timeout info maps
 
 local m = {}
 
@@ -66,6 +68,15 @@ function m.run()
       table.insert(wakethreads[srcthreads.send].sendr, skt)
     end
 
+    local now = socket.gettime()
+    for _,toinfo in ipairs(threadtimeoutlist) do
+      if toinfo.timeouttime then -- skip canceled timeouts
+        if toinfo.timeouttime > now then break end -- only process expired timeouts
+
+        wakethreads[toinfo.thread] = {err = "timeout" }
+      end
+    end
+
     -- run all threads
     for thread, params in pairs(wakethreads) do
       print("+++++++++++++ waking", threadnames[thread] or thread)
@@ -73,11 +84,18 @@ function m.run()
         local status, threadrecvt_or_err, threadsendt, threadtimeout =
           coroutine.resume(thread, params.recvr, params.sendr, params.err)
 
-        assert(not threadtimeout, "timeout not supported")
         if status and coroutine.status(thread) == "suspended" then
           local threadrecvt = threadrecvt_or_err
           -- note which sockets this thread is waiting on
           threadswaitingfor[thread] = {recvt = threadrecvt, sendt = threadsendt, timeout = threadtimeout}
+          if threadtimeout then
+            local timeoutinfo = {
+              thread = thread,
+              timeouttime = threadtimeout + socket.gettime()
+            }
+            threadtimeouts[thread] = timeoutinfo
+            table.insert(threadtimeoutlist, timeoutinfo)
+          end
         elseif coroutine.status(thread) == "dead" then
           if not status and not threaderrorhandler then
             local err = threadrecvt_or_err
@@ -109,8 +127,6 @@ function m.run()
     end
     if not running then break end
 
-    if #newthreads > 0 then timeout = 0 end
-
     for thread, test in pairs(threadswaitingfor) do
       if test.recvt then
         for _, skt in pairs(test.recvt) do
@@ -129,6 +145,20 @@ function m.run()
         end
       end
       -- TODO: probably something with timers/outs
+    end
+
+    if #newthreads > 0 then
+      timeout = 0
+    else
+      -- this is exceptionally inefficient, but it works, TODO: I dunno, timerwheel, after benchmarks
+      table.sort(threadtimeoutlist, function(a,b) return a.timeouttime and b.timeouttime and a.timeouttime < b.timeouttime end)
+      local timeouttime = (threadtimeoutlist[1] or {}).timeouttime
+      if timeouttime then
+        timeout = math.max(timeouttime - socket.gettime(), 0) -- negative timeouts mean infinity
+        print("earliest timeout", timeout)
+        local now = socket.gettime()
+        for k,v in ipairs(threadtimeoutlist) do print(k,v,v.timeouttime - now) end
+      end
     end
 
     if not timeout and #recvt == 0 and #sendt == 0 then
