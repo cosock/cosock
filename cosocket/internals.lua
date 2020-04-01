@@ -9,7 +9,6 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         local status = ret[1]
         local err = ret[2]
         if err == "timeout" then
-          print("yield: "..method.." (".."".."")
           assert(recvmethods[method] or sendmethods[method],
             "about to yield on method that is niether recv nor send")
           local _, _, rterr = coroutine.yield(recvmethods[method] and {self} or {},

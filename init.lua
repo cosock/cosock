@@ -19,6 +19,9 @@ local threaderrorhandler = nil
 local threadtimeouts = {} -- map of thread => timeout info map
 local threadtimeoutlist = {} -- ordered list of timeout info maps
 
+-- silence print statements in this file
+local print = function() end
+
 local m = {}
 
 m.socket = cosocket
