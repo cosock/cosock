@@ -1,6 +1,7 @@
 local luasocket = require "socket"
 
 local tcp = assert(require "cosocket.tcp")
+local udp = assert(require "cosocket.udp")
 
 --- cosocket: a coroutine wrapped luasocket interface
 ---
@@ -90,8 +91,6 @@ end
 
 m.sinkt = {}
 
-m.udp = function()
-  error("unimplemented")
-end
+m.udp = udp
 
 return m
