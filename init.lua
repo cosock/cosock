@@ -1,8 +1,11 @@
 --- cosock is a library that provides a coroutine executor for luasocket.
---- Unlike existing coroutine executors it aims to provoce an as close to
---- identical to luasocket interface inside coroutines, including APIs like
---- `select`.
-
+--- Unlike existing coroutine executors it aims to provide a socket facade API
+--- inside each coroutine that is as close to the native luasocket API as is
+--- possible.
+---
+--- Note: currenly the only goals are to provide the API as documented,
+--- undocumented APIs are out of scope for now (however, small quirks that
+--- are heavily depened on in the ecosystem will be considered).
 local cosocket = require "cosocket"
 local socket = require "socket"
 
