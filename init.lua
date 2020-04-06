@@ -156,7 +156,7 @@ function m.run()
       print("thread", threadnames[thread] or thread, coroutine.status(thread))
       if coroutine.status(thread) ~= "dead" then running = true end
     end
-    if not running then break end
+    if not running and #newthreads == 0 then break end
 
     for thread, params in pairs(threadswaitingfor) do
       if params.recvt then
