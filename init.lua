@@ -39,7 +39,6 @@ function m.run()
   local runstarttime = socket.gettime()
   local recvr, sendr = {}, {} -- ready to send/recv sockets from luasocket.select
   while true do
-    if socket.gettime() - runstarttime > 0.3 then error("should be over by now") end
     print(string.format("================= %s ======================", socket.gettime() - runstarttime))
     local deadthreads = {} -- indexed list of thread objects
     local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
