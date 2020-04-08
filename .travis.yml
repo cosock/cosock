@@ -1,6 +1,4 @@
-language: python # Can use any language here, but if it's not 'python'
-                 # it becomes necessary to pass '--user' to pip when installing hererocks.
-sudo: false      # Use container-based infrastructure.
+language: python
 
 env:
   - LUA="lua 5.1"
