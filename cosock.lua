@@ -1,4 +1,4 @@
-local cosocket = require "cosocket"
+local cosocket = require "cosock.cosocket"
 local socket = require "socket"
 
 local threads = {} --TODO: use set instead of list

@@ -1,4 +1,4 @@
-local cosock = require "init"
+local cosock = require "cosock"
 local socket = cosock.socket
 
 local fast_client_finished = false

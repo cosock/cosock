@@ -1,5 +1,5 @@
 local lsocket = require "socket"
-local internals = require "cosocket.internals"
+local internals = require "cosock.cosocket.internals"
 
 local m = {}
 

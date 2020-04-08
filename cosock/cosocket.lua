@@ -1,7 +1,7 @@
 local luasocket = require "socket"
 
-local tcp = assert(require "cosocket.tcp")
-local udp = assert(require "cosocket.udp")
+local tcp = assert(require "cosock.cosocket.tcp")
+local udp = assert(require "cosock.cosocket.udp")
 
 --- cosocket: a coroutine wrapped luasocket interface
 ---

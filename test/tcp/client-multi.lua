@@ -1,5 +1,5 @@
 print("----------------------------------------")
-local cosock = require "init"
+local cosock = require "cosock"
 
 assert(cosock, "require something")
 assert(type(cosock) == "table", "cosock is table")
