@@ -19,7 +19,7 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         elseif status and transform then
           return transform(table.unpack(ret))
         else
-          return table.unpack(ret)
+          return table.unpack(ret) -- TODO: find way to make this compatiable with 5.1/jit
         end
       until nil
     end
