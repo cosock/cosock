@@ -1,11 +1,13 @@
 local m = {}
 
+local unpack = table.unpack or unpack
+
 function m.passthroughbuilder(recvmethods, sendmethods)
   return function(method, transform)
     return function(self, ...)
       repeat
         local isock = self.inner_sock
-        local ret = table.pack(isock[method](isock, ...))
+        local ret = {isock[method](isock, ...)}
         local status = ret[1]
         local err = ret[2]
         if err == "timeout" then
@@ -17,9 +19,9 @@ function m.passthroughbuilder(recvmethods, sendmethods)
 
           if rterr then return nil --[[ TODO: value? ]], rterr end
         elseif status and transform then
-          return transform(table.unpack(ret))
+          return transform(unpack(ret))
         else
-          return table.unpack(ret) -- TODO: find way to make this compatiable with 5.1/jit
+          return unpack(ret)
         end
       until nil
     end
