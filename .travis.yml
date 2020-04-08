@@ -14,6 +14,7 @@ before_install:
   - hererocks env --$LUA -rlatest    # Use latest LuaRocks, install into 'env' directory.
   - source env/bin/activate          # Add directory with all installed binaries to PATH.
   - luarocks install luacheck
+  - luarocks install luasocket
 
 script:
   - timeout 5 lua test/threads/spawn-child-and-die.lua
