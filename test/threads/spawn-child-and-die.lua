@@ -2,7 +2,7 @@ local cosock = require "init"
 
 local childran = false
 
-function child()
+local function child()
   cosock.spawn(function()
     print("child spawn")
 

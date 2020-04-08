@@ -4,7 +4,7 @@ local socket = cosock.socket
 local fast_client_finished = false
 local slow_client_finished = false
 
-function fast_client(host, port)
+local function fast_client(host, port)
   cosock.spawn(function()
     print("fast client spawn")
     local s = socket.udp()
@@ -25,7 +25,7 @@ function fast_client(host, port)
 
 end
 
-function slow_client(host, port)
+local function slow_client(host, port)
   cosock.spawn(function()
     print("slow client spawn")
     local s = socket.udp()
@@ -55,11 +55,11 @@ cosock.spawn(function()
   fast_client(ip, port)
   slow_client(ip, port)
 
-  for i=1,2 do
-    local pkt, ip, port = s:receivefrom()
+  for _=1,2 do
+    local pkt, rip, rport = s:receivefrom()
     assert(pkt, "receivefrom")
     socket.select(nil, nil, 0.1)
-    s:sendto(pkt, ip, port)
+    s:sendto(pkt, rip, rport)
   end
 
   print("server exit")

@@ -174,12 +174,15 @@ function m.run()
       timeout = 0
     else
       -- this is exceptionally inefficient, but it works, TODO: I dunno, timerwheel, after benchmarks
-      table.sort(threadtimeoutlist, function(a,b) return a.timeouttime and b.timeouttime and a.timeouttime < b.timeouttime end)
+      table.sort(
+        threadtimeoutlist,
+        function(a,b) return a.timeouttime and b.timeouttime and a.timeouttime < b.timeouttime end
+      )
       local timeouttime = (threadtimeoutlist[1] or {}).timeouttime
       if timeouttime then
         timeout = math.max(timeouttime - socket.gettime(), 0) -- negative timeouts mean infinity
         print("earliest timeout", timeout)
-        local now = socket.gettime()
+        now = socket.gettime()
         for k,v in ipairs(threadtimeoutlist) do print(k,v,v.timeouttime - now) end
       end
     end
