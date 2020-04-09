@@ -18,10 +18,15 @@ function m.passthroughbuilder(recvmethods, sendmethods)
                                               self.timeout)
 
           if rterr then return nil --[[ TODO: value? ]], rterr end
-        elseif status and transform then
-          return transform(unpack(ret))
+        elseif status then
+          self.class = self.inner_sock.class
+          if transform then
+            return transform(unpack(ret))
+          else
+            return unpack(ret)
+          end
         else
-          return unpack(ret)
+          return unpack(ret) -- TODO: find way to make this compatiable with 5.1/jit
         end
       until nil
     end

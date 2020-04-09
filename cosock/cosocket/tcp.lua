@@ -1,4 +1,4 @@
-local lsocket = require "socket"
+local luasocket = require "socket"
 local internals = require "cosock.cosocket.internals"
 
 local m = {}
@@ -16,10 +16,10 @@ local sendmethods = {
 }
 
 setmetatable(m, {__call = function()
-  local inner_sock, err = lsocket.tcp()
+  local inner_sock, err = luasocket.tcp()
   if not inner_sock then return inner_sock, err end
   inner_sock:settimeout(0)
-  return setmetatable({inner_sock = inner_sock}, { __index = m})
+  return setmetatable({inner_sock = inner_sock, class = "tcp{master}"}, { __index = m})
 end})
 
 local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
@@ -27,14 +27,26 @@ local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
 m.accept = passthrough("accept", function(inner_sock)
   assert(inner_sock, "transform called on error from accept")
   inner_sock:settimeout(0)
-  return setmetatable({inner_sock = inner_sock}, { __index = m})
+  return setmetatable({inner_sock = inner_sock, class = "tcp{client}"}, { __index = m})
 end)
 
 m.bind = passthrough("bind")
 
+m.class = function(self)
+  return self.inner_sock.class()
+end
+
 m.close = passthrough("close")
 
 m.connect = passthrough("connect")
+
+m.dirty = passthrough("dirty")
+
+m.getfamily = passthrough("getfamily")
+
+m.getfd = passthrough("getfd")
+
+m.getoption = passthrough("getoption")
 
 m.getpeername = passthrough("getpeername")
 
@@ -47,6 +59,8 @@ m.listen = passthrough("listen")
 m.receive = passthrough("receive")
 
 m.send = passthrough("send")
+
+m.setfd = passthrough("setfd")
 
 m.setoption = passthrough("setoption")
 
