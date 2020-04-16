@@ -26,7 +26,7 @@ function m.passthroughbuilder(recvmethods, sendmethods)
             return unpack(ret)
           end
         else
-          return unpack(ret) -- TODO: find way to make this compatiable with 5.1/jit
+          return unpack(ret)
         end
       until nil
     end

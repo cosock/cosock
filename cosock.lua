@@ -27,12 +27,20 @@ end
 
 -- Implementaion Notes:
 -- This run loop is where all the magic happens
+--
+-- Threads' calls to coroutine.yield function exactly like socket.select. They take: a list of
+-- receive-test sockets, a list of write-test sockets, and a timeout. Then, that thread is resumed
+-- with: a list of recieve-ready sockets, a list of write-ready sockets, and/or a timeout error.
+--
+-- This function then combines these lists for a single call to the real socket.select. Once that
+-- returns it filters the list of ready sockets out each thread that was waiting on each or
+-- determines which has a timeout that has ellapsed.
 function m.run()
   local runstarttime = socket.gettime()
   local recvr, sendr = {}, {} -- ready to send/recv sockets from luasocket.select
   while true do
     print(string.format("================= %s ======================", socket.gettime() - runstarttime))
-    local deadthreads = {} -- indexed list of thread objects
+    local deadthreads = {} -- list of threads that are finished executing
     local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
     local sendt, recvt, timeout = {}, {}, nil -- cumulative values across all threads
 
@@ -43,6 +51,7 @@ function m.run()
     end
     newthreads = {}
 
+    -- map recieve-ready sockets to threads to be woken & note which socket(s) were the cause
     for _,lskt in ipairs(recvr) do
       print("**** recvr ****")
       local skt = socketwrappermap[lskt]
@@ -57,6 +66,7 @@ function m.run()
       if threadtimeoutinfo then threadtimeoutinfo.timeouttime = nil end -- mark timeout canceled
     end
 
+    -- map send-ready sockets to threads to be woken & note which socket(s) were the cause
     for _,lskt in ipairs(sendr) do
       local skt = socketwrappermap[lskt]
       print("**** sendr ****", skt)
@@ -72,6 +82,7 @@ function m.run()
       if threadtimeoutinfo then threadtimeoutinfo.timeouttime = nil end -- mark timeout canceled
     end
 
+    -- map hit timeouts to threads to be woken & note that timeout was the cause
     local now = socket.gettime()
     for _,toinfo in ipairs(threadtimeoutlist) do
       if toinfo.timeouttime then -- skip canceled timeouts
@@ -93,7 +104,7 @@ function m.run()
         if status and coroutine.status(thread) == "suspended" then
           local threadrecvt = threadrecvt_or_err
           print("--------------- suspending", threadnames[thread] or thread, threadrecvt, threadsendt, threadtimeout)
-          -- note which sockets this thread is waiting on
+          -- note which sockets this thread is now waiting on
           threadswaitingfor[thread] = {recvt = threadrecvt, sendt = threadsendt, timeout = threadtimeout}
           if threadtimeout then
             local timeoutinfo = {
@@ -122,7 +133,6 @@ function m.run()
     end
 
     -- threads can't be removed while iterating through the main list
-    -- reverse sort, must pop larger indicies before smaller
     for _, thread in ipairs(deadthreads) do
       threads[thread] = nil
     end
@@ -142,6 +152,7 @@ function m.run()
       end
     end
 
+    -- check if all threads have completed so that the runtime should exit
     local running = false
     for _, thread in pairs(threads) do
       print("thread", threadnames[thread] or thread, coroutine.status(thread))
@@ -149,6 +160,7 @@ function m.run()
     end
     if not running and #newthreads == 0 then break end
 
+    -- pull out threads' recieve-test & send-test sockets into each cumulative list
     for thread, params in pairs(threadswaitingfor) do
       if params.recvt then
         for _, skt in pairs(params.recvt) do
@@ -166,7 +178,6 @@ function m.run()
           socketwrappermap[skt.inner_sock] = skt;
         end
       end
-      -- TODO: probably something with timers/outs
     end
 
     if #newthreads > 0 then
