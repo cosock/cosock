@@ -90,7 +90,7 @@ function m.run()
         print(toinfo.timeouttime, now, toinfo.timeouttime - now)
 
         wakethreads[toinfo.thread] = {err = "timeout" }
-	toinfo.timeouttime = nil -- mark timeout handled
+        toinfo.timeouttime = nil -- mark timeout handled
       end
     end
 
