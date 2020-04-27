@@ -1,0 +1,22 @@
+language: python
+
+env:
+  - LUA="lua 5.1"
+  - LUA="lua 5.2"
+  - LUA="lua 5.3"
+  - LUA="luajit 2.0"
+  - LUA="luajit 2.1"
+
+before_install:
+  - pip install hererocks
+  - hererocks $HOME/env --$LUA -rlatest    # Use latest LuaRocks, install into 'env' directory.
+  - source $HOME/env/bin/activate          # Add directory with all installed binaries to PATH.
+  - luarocks install luacheck
+  - luarocks install luasocket
+
+script:
+  - timeout 5 lua test/threads/spawn-child-and-die.lua
+  - timeout 5 lua test/tcp/client-multi.lua
+  - timeout 5 lua test/tcp/client-timeout.lua
+  - timeout 5 lua test/udp/client-timeout.lua
+  - luacheck .
