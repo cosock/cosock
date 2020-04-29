@@ -1,5 +1,6 @@
 local cosocket = require "cosock.cosocket"
 local socket = require "socket"
+local channel = require "cosock.channel"
 
 local threads = {} --TODO: use set instead of list
 local newthreads = {} -- threads to be added before next iteration of run
@@ -17,6 +18,7 @@ local print = function() end
 local m = {}
 
 m.socket = cosocket
+m.channel = channel
 
 function m.spawn(fn, name)
   local thread = coroutine.create(fn)
@@ -38,10 +40,12 @@ end
 function m.run()
   local runstarttime = socket.gettime()
   local recvr, sendr = {}, {} -- ready to send/recv sockets from luasocket.select
+  local nextwakethreads = nil -- set to table like wakethreads if a thread is woken by other thread
   while true do
     print(string.format("================= %s ======================", socket.gettime() - runstarttime))
     local deadthreads = {} -- list of threads that are finished executing
-    local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
+    local wakethreads = nextwakethreads or {} -- map of thread => named resume params (rdy skts, timeout, etc)
+    nextwakethreads = nil
     local sendt, recvt, timeout = {}, {}, nil -- cumulative values across all threads
 
     -- threads can't be added while iterating through the main list
@@ -106,6 +110,33 @@ function m.run()
           print("--------------- suspending", threadnames[thread] or thread, threadrecvt, threadsendt, threadtimeout)
           -- note which sockets this thread is now waiting on
           threadswaitingfor[thread] = {recvt = threadrecvt, sendt = threadsendt, timeout = threadtimeout}
+
+	  if threadrecvt then
+            for _,skt in pairs(threadrecvt) do
+              -- waker-style virtual sockets only, luasocket sockets handled outside wakethread loop
+              if skt.setwaker then
+                skt:setwaker("recvr", function()
+                  nextwakethreads = nextwakethreads or {}
+                  nextwakethreads[thread] = nextwakethreads[thread] or {}
+                  nextwakethreads[thread].recvr = nextwakethreads[thread].recvr or {}
+                  table.insert(nextwakethreads[thread].recvr, skt)
+                end)
+              end
+            end
+	  end
+          if threadsendt then
+            for _,skt in pairs(threadsendt) do
+              -- waker-style virtual sockets only, luasocket sockets handled outside wakethread loop
+              if skt.setwaker then
+                skt:setwaker("sendr", function()
+                  nextwakethreads = nextwakethreads or {}
+                  nextwakethreads[thread] = nextwakethreads[thread] or {}
+                  nextwakethreads[thread].sendr = nextwakethreads[thread].sendr or {}
+                  table.insert(nextwakethreads[thread].sendr, skt)
+                end)
+              end
+            end
+          end
           if threadtimeout then
             local timeoutinfo = {
               thread = thread,
@@ -118,9 +149,9 @@ function m.run()
           if not status and not threaderrorhandler then
             local err = threadrecvt_or_err
             if debug and debug.traceback then
-              print(debug.traceback(thread, err))
+              error(debug.traceback(thread, err))
             else
-              print(err)
+              error(err)
             end
             os.exit(-1)
           end
@@ -164,24 +195,31 @@ function m.run()
     for thread, params in pairs(threadswaitingfor) do
       if params.recvt then
         for _, skt in pairs(params.recvt) do
-          print("thread for recvt:", threadnames[thread] or thread)
-          threadsocketmap[skt] = {recv = thread}
-          table.insert(recvt, skt.inner_sock)
-          socketwrappermap[skt.inner_sock] = skt;
+          if skt.inner_sock then
+            print("thread for recvt:", threadnames[thread] or thread)
+            threadsocketmap[skt] = {recv = thread}
+            table.insert(recvt, skt.inner_sock)
+            socketwrappermap[skt.inner_sock] = skt;
+          end
         end
       end
       if params.sendt then
         for _, skt in pairs(params.sendt) do
-          print("thread for sendt:", threadnames[thread] or thread)
-          threadsocketmap[skt] = {send = thread}
-          table.insert(sendt, skt.inner_sock)
-          socketwrappermap[skt.inner_sock] = skt;
+          if skt.inner_sock then
+            print("thread for sendt:", threadnames[thread] or thread)
+            threadsocketmap[skt] = {send = thread}
+            table.insert(sendt, skt.inner_sock)
+            socketwrappermap[skt.inner_sock] = skt;
+          end
         end
       end
     end
 
     if #newthreads > 0 then
       print("new thread waiting, no timeout")
+      timeout = 0
+    elseif nextwakethreads then
+      print("thread woken during execution of other threads, no timeout")
       timeout = 0
     else
       -- this is exceptionally inefficient, but it works, TODO: I dunno, timerwheel, after benchmarks
@@ -198,12 +236,12 @@ function m.run()
       end
     end
 
-    if not timeout and #recvt == 0 and #sendt == 0 then
-      -- in case of bugs
-      timeout = 1
-      print("WARNING: cosock tried to call socket select with no sockets and no timeout"
-        --[[ TODO: for when things actually work: .." this is a bug, please report it"]])
-    end
+    --if not timeout and #recvt == 0 and #sendt == 0 then
+    --  -- in case of bugs
+    --  timeout = 1
+    --  print("WARNING: cosock tried to call socket select with no sockets and no timeout"
+    --    --[[ TODO: for when things actually work: .." this is a bug, please report it"]])
+    --end
 
     print("start select", #recvt, #sendt, timeout)
     --for k,v in pairs(recvt) do print("r", k, v) end
