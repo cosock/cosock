@@ -21,7 +21,7 @@ local function fast_client(host, port)
 
     fast_client_finished = true
     print("fast client exit")
-  end, "single client")
+  end, "fast (0.01) client")
 
 end
 
@@ -41,7 +41,7 @@ local function slow_client(host, port)
 
     slow_client_finished = true
     print("slow client exit")
-  end, "single client")
+  end, "slow (0.3) client")
 end
 
 cosock.spawn(function()
@@ -63,7 +63,7 @@ cosock.spawn(function()
   end
 
   print("server exit")
-end)
+end, "server")
 
 
 
