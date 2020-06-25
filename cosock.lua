@@ -1,15 +1,16 @@
 local cosocket = require "cosock.cosocket"
 local socket = require "socket"
+local channel = require "cosock.channel"
+
+local weaktable = { __mode = "kv" } -- mark table as having weak refs to keys and values
+local weakkeys = { __mode = "k" } -- mark table as having weak refs to keys
 
 local threads = {} --TODO: use set instead of list
-local newthreads = {} -- threads to be added before next iteration of run
-local threadnames = {}
+local threadnames = setmetatable({}, weakkeys)
 local threadswaitingfor = {} -- what each thread is waiting for
-local threadsocketmap = {} -- maps threads from which socket is being waiting
-local socketwrappermap = {} -- from native socket to async socket TODO: weak ref
-local threaderrorhandler = nil
-local threadtimeouts = {} -- map of thread => timeout info map
-local threadtimeoutlist = {} -- ordered list of timeout info maps
+local readythreads = {} -- like wakethreads, but for next loop (can be modified while looping wakethreads)
+local socketwrappermap = setmetatable({}, weaktable) -- from native socket to async socket
+local threaderrorhandler = nil -- TODO: allow setting error handler
 
 -- silence print statements in this file
 local print = function() end
@@ -17,12 +18,88 @@ local print = function() end
 local m = {}
 
 m.socket = cosocket
+m.channel = channel
+
+local timers = {}
+do
+  local timeouts = {}
+  local refs = {}
+  -- takes a relative timeout, a callback that is called with no params,
+  -- and an optional reference object for cancellation
+  timers.set = function(timeout, callback, ref)
+    print("timer set: %s,%s", timeout, ref)
+    local now = socket.gettime()
+    local timeoutat = timeout + now
+    print(timeoutat, timeout, now)
+    local timeoutinfo = {timeoutat = timeoutat, callback = callback, ref = ref}
+    table.insert(timeouts, timeoutinfo)
+    if ref then refs[ref] = timeoutinfo end
+  end
+
+  timers.cancel = function(ref)
+    local timeoutinfo = refs[ref]
+    if timeoutinfo then
+      -- mark as canceled, actual object will fall out at originally scheduled time
+      timeoutinfo.callback = nil
+      timeoutinfo.ref = nil
+    end
+    refs[ref] = nil
+  end
+
+  -- run expired timers, returns time to next timeout expiration
+  timers.run = function()
+    -- this seems exceptionally inefficient, but it works
+    -- TODO: I dunno, maybe use a timerwheel, after benchmarks
+    table.sort(
+      timeouts,
+      function(a,b)
+        -- bubble nil timeouts to the top to be dropped
+        return
+          not a.timeoutat or
+          (a.timeoutat and b.timeoutat and a.timeoutat < b.timeoutat)
+      end
+    )
+
+    local now = socket.gettime()
+
+    -- process timeout callback and remove
+    while timeouts[1] and (timeouts[1].timeoutat == nil or timeouts[1].timeoutat < now) do
+      local timeoutinfo = table.remove(timeouts, 1)
+      if timeoutinfo.callback then timeoutinfo.callback() end
+      if timeoutinfo.ref then refs[timeoutinfo.ref] = nil end
+    end
+
+    local timeoutat = (timeouts[1] or {}).timeoutat
+    print("timeout time", timeoutat)
+    if timeoutat then
+      local timeout = timeoutat - now
+      print("earliest timeout", timeout)
+      return timeout
+    else
+      return nil
+    end
+  end
+end
 
 function m.spawn(fn, name)
   local thread = coroutine.create(fn)
   print("cosocket spawn", name or thread)
   threadnames[thread] = name
-  table.insert(newthreads, thread)
+  threads[thread] = thread
+  readythreads[thread] = {}
+end
+
+local function wake_thread(wakelist, thread, kind, skt)
+  print("wake thread", thread, kind, skt)
+  wakelist[thread] = wakelist[thread] or {}
+  wakelist[thread][kind] = wakelist[thread][kind] or {}
+  table.insert(wakelist[thread][kind], skt)
+end
+
+local function wake_thread_err(wakelist, thread, err)
+  print("wake thread err", thread, err)
+  wakelist[thread] = wakelist[thread] or {}
+  wakelist[thread].err = err
 end
 
 -- Implementaion Notes:
@@ -37,118 +114,80 @@ end
 -- determines which has a timeout that has ellapsed.
 function m.run()
   local runstarttime = socket.gettime()
-  local recvr, sendr = {}, {} -- ready to send/recv sockets from luasocket.select
   while true do
-    print(string.format("================= %s ======================", socket.gettime() - runstarttime))
-    local deadthreads = {} -- list of threads that are finished executing
+    print("================= %s ======================", socket.gettime() - runstarttime)
     local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
-    local sendt, recvt, timeout = {}, {}, nil -- cumulative values across all threads
+    local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
 
-    -- threads can't be added while iterating through the main list
-    for _, thread in pairs(newthreads) do
-      threads[thread] = thread
-      wakethreads[thread] = {} -- empty no ready sockets or errors
-    end
-    newthreads = {}
+    -- add threads that have become ready since last loop to threads to be woken
+    for thread, reasons in pairs(readythreads) do
+      wakethreads[thread] = reasons
 
-    -- map recieve-ready sockets to threads to be woken & note which socket(s) were the cause
-    for _,lskt in ipairs(recvr) do
-      print("**** recvr ****")
-      local skt = socketwrappermap[lskt]
-      assert(skt)
-      local srcthreads = threadsocketmap[skt]
-      assert(srcthreads, "no thread waiting on socket")
-      assert(srcthreads.recv, "no thread waiting on recv ready")
-      wakethreads[srcthreads.recv] = wakethreads[srcthreads.recv] or {}
-      wakethreads[srcthreads.recv].recvr = wakethreads[srcthreads.recv].recvr or {}
-      table.insert(wakethreads[srcthreads.recv].recvr, skt)
-      local threadtimeoutinfo = threadtimeouts[srcthreads.recv]
-      if threadtimeoutinfo then threadtimeoutinfo.timeouttime = nil end -- mark timeout canceled
-    end
-
-    -- map send-ready sockets to threads to be woken & note which socket(s) were the cause
-    for _,lskt in ipairs(sendr) do
-      local skt = socketwrappermap[lskt]
-      print("**** sendr ****", skt)
-      assert(skt)
-      local srcthreads = threadsocketmap[skt]
-      for k,thread in pairs(srcthreads) do print(k,threadnames[thread] or thread) end
-      assert(srcthreads, "no thread waiting on socket")
-      assert(srcthreads.send, "no thread waiting on send ready")
-      wakethreads[srcthreads.send] = wakethreads[srcthreads.send] or {}
-      wakethreads[srcthreads.send].sendr = wakethreads[srcthreads.send].sendr or {}
-      table.insert(wakethreads[srcthreads.send].sendr, skt)
-      local threadtimeoutinfo = threadtimeouts[srcthreads.send]
-      if threadtimeoutinfo then threadtimeoutinfo.timeouttime = nil end -- mark timeout canceled
-    end
-
-    -- map hit timeouts to threads to be woken & note that timeout was the cause
-    local now = socket.gettime()
-    for _,toinfo in ipairs(threadtimeoutlist) do
-      if toinfo.timeouttime then -- skip canceled timeouts
-        if now < toinfo.timeouttime then break end -- only process expired timeouts
-        print(toinfo.timeouttime, now, toinfo.timeouttime - now)
-
-        wakethreads[toinfo.thread] = {err = "timeout" }
-        toinfo.timeouttime = nil -- mark timeout handled
-      end
+      -- drain copied table (note: the `readythreads` table must not be replaced with a new
+      -- table, callbacks hold a reference to this specific instance)
+      -- also this operation is actually valid, values can be modified or removed, just not added
+      readythreads[thread] = nil
     end
 
     -- run all threads
     for thread, params in pairs(wakethreads) do
-      print("+++++++++++++ waking", threadnames[thread] or thread, params.recvr, params.sendr, params.err)
+      print("waking", threadnames[thread] or thread, params.recvr, params.sendr, params.err)
       if coroutine.status(thread) == "suspended" then
+        -- cancel thread timeout (if any)
+        timers.cancel(thread)
+
+        -- cancel other timers
+        for kind, sockets in pairs(threadswaitingfor[thread] or {}) do
+          if kind ~= "timeout" then
+            for _, skt in pairs(sockets) do
+              assert(skt.setwaker, "non-wakeable socket")
+              print("unset waker", kind)
+              skt:setwaker(kind, nil)
+            end
+          end
+        end
+
+        -- resume thread
         local status, threadrecvt_or_err, threadsendt, threadtimeout =
           coroutine.resume(thread, params.recvr, params.sendr, params.err)
 
         if status and coroutine.status(thread) == "suspended" then
           local threadrecvt = threadrecvt_or_err
-          print("--------------- suspending", threadnames[thread] or thread, threadrecvt, threadsendt, threadtimeout)
+          print("suspending", threadnames[thread] or thread, threadrecvt, threadsendt, threadtimeout)
           -- note which sockets this thread is now waiting on
-          threadswaitingfor[thread] = {recvt = threadrecvt, sendt = threadsendt, timeout = threadtimeout}
+          threadswaitingfor[thread] = {recvr = threadrecvt, sendr = threadsendt, timeout = threadtimeout}
+
+          -- setup wakers for all sockets
+          for kind, sockets in pairs(threadswaitingfor[thread]) do
+            if kind ~= "timeout" then
+              for _, skt in pairs(sockets) do
+                assert(skt.setwaker, "non-wakeable socket")
+                print("set waker", kind)
+                skt:setwaker(kind, function() wake_thread(readythreads, thread, kind, skt) end)
+              end
+            end
+          end
+
+          -- setup waker for timeout
           if threadtimeout then
-            local timeoutinfo = {
-              thread = thread,
-              timeouttime = threadtimeout + socket.gettime()
-            }
-            threadtimeouts[thread] = timeoutinfo
-            table.insert(threadtimeoutlist, timeoutinfo)
+            timers.set(threadtimeout, function() wake_thread_err(readythreads, thread, "timeout") end, thread)
           end
         elseif coroutine.status(thread) == "dead" then
           if not status and not threaderrorhandler then
             local err = threadrecvt_or_err
             if debug and debug.traceback then
-              print(debug.traceback(thread, err))
+              error(debug.traceback(thread, err))
             else
-              print(err)
+              error(err)
             end
             os.exit(-1)
           end
           print("dead", threadnames[thread] or thread, status, threadrecvt_or_err)
-          table.insert(deadthreads, thread)
+          threads[thread] = nil
+          threadswaitingfor[thread] = nil
         end
       else
-        print("warning: non-suspended thread encountered", coroutine.status(thread))
-      end
-    end
-
-    -- threads can't be removed while iterating through the main list
-    for _, thread in ipairs(deadthreads) do
-      threads[thread] = nil
-    end
-
-    -- cull dead timeouts
-    local listlen = #threadtimeoutlist -- list will shrink during iteration
-    for i = 1, #threadtimeoutlist do
-      local ri = listlen - i + 1
-      print("idx", i, ri, listlen)
-      print(threadtimeoutlist[ri])
-      if not threadtimeoutlist[ri] then
-        print(string.format("internal error: empty element in timeout list at %s/%s", ri, listlen))
-        table.remove(threadtimeoutlist, ri)
-      elseif not threadtimeoutlist[ri].timeouttime then
-        local toinfo = table.remove(threadtimeoutlist, ri)
-        threadtimeouts[toinfo.thread] = nil
+        print("non-suspended thread encountered", coroutine.status(thread))
       end
     end
 
@@ -158,67 +197,70 @@ function m.run()
       print("thread", threadnames[thread] or thread, coroutine.status(thread))
       if coroutine.status(thread) ~= "dead" then running = true end
     end
-    if not running and #newthreads == 0 then break end
+    if not running and not next(readythreads) then break end
 
     -- pull out threads' recieve-test & send-test sockets into each cumulative list
     for thread, params in pairs(threadswaitingfor) do
-      if params.recvt then
-        for _, skt in pairs(params.recvt) do
-          print("thread for recvt:", threadnames[thread] or thread)
-          threadsocketmap[skt] = {recv = thread}
-          table.insert(recvt, skt.inner_sock)
-          socketwrappermap[skt.inner_sock] = skt;
+      if params.recvr then
+        for _, skt in pairs(params.recvr) do
+          if skt.inner_sock then
+            print("thread for recvt:", threadnames[thread] or thread)
+            table.insert(recvt, skt.inner_sock)
+            socketwrappermap[skt.inner_sock] = skt;
+          end
         end
       end
-      if params.sendt then
-        for _, skt in pairs(params.sendt) do
-          print("thread for sendt:", threadnames[thread] or thread)
-          threadsocketmap[skt] = {send = thread}
-          table.insert(sendt, skt.inner_sock)
-          socketwrappermap[skt.inner_sock] = skt;
+      if params.sendr then
+        for _, skt in pairs(params.sendr) do
+          if skt.inner_sock then
+            print("thread for sendt:", threadnames[thread] or thread)
+            table.insert(sendt, skt.inner_sock)
+            socketwrappermap[skt.inner_sock] = skt;
+          end
         end
       end
     end
 
-    if #newthreads > 0 then
-      print("new thread waiting, no timeout")
+    -- run timeouts (will push to `readythreads`)
+    timeout = timers.run()
+
+    if next(readythreads) then
+      print("thread woken during execution of other threads, no timeout")
       timeout = 0
-    else
-      -- this is exceptionally inefficient, but it works, TODO: I dunno, timerwheel, after benchmarks
-      table.sort(
-        threadtimeoutlist,
-        function(a,b) return a.timeouttime and b.timeouttime and a.timeouttime < b.timeouttime end
-      )
-      local timeouttime = (threadtimeoutlist[1] or {}).timeouttime
-      if timeouttime then
-        timeout = math.max(timeouttime - socket.gettime(), 0) -- negative timeouts mean infinity
-        print("earliest timeout", timeout)
-        now = socket.gettime()
-        for k,v in ipairs(threadtimeoutlist) do print(k,v,v.timeouttime - now) end
-      end
     end
 
     if not timeout and #recvt == 0 and #sendt == 0 then
       -- in case of bugs
-      timeout = 1
-      print("WARNING: cosock tried to call socket select with no sockets and no timeout"
-        --[[ TODO: for when things actually work: .." this is a bug, please report it"]])
+      error("cosock tried to call socket.select with no sockets and no timeout. "
+            .."this is a bug, please report it")
     end
 
     print("start select", #recvt, #sendt, timeout)
     --for k,v in pairs(recvt) do print("r", k, v) end
     --for k,v in pairs(sendt) do print("s", k, v) end
-    local err
-    recvr, sendr, err = socket.select(recvt, sendt, timeout)
+    local recvr, sendr, err = socket.select(recvt, sendt, timeout)
     print("return select", #recvr, #sendr)
 
     if err and err ~= "timeout" then error(err) end
+
+    -- call waker on recieve-ready sockets
+    for _,lskt in ipairs(recvr) do
+      local skt = socketwrappermap[lskt]
+      assert(skt, "unknown socket")
+      assert(skt._wake, "unwakeable socket")
+      skt:_wake("recvr")
+    end
+
+    -- call waker on send-ready sockets
+    for _,lskt in ipairs(sendr) do
+      local skt = socketwrappermap[lskt]
+      assert(skt, "unknown socket")
+      assert(skt._wake, "unwakeable socket")
+      skt:_wake("sendr")
+    end
   end
 
   print("run exit")
-  --for k,v in ipairs(threadtimeoutlist) do print(k,v); print(threadnames[v.thread] or v.thread, v.timeouttime) end
-  assert(#threadtimeoutlist == 0, "thread timeoutlist")
-
 end
 
 return m
