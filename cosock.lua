@@ -263,4 +263,14 @@ function m.run()
   print("run exit")
 end
 
+-- reset state for tests, not for external use
+function m.reset()
+  threads = {}
+  threadnames = setmetatable({}, weakkeys)
+  threadswaitingfor = {}
+  readythreads = {}
+  socketwrappermap = setmetatable({}, weaktable)
+  threaderrorhandler = nil
+end
+
 return m
