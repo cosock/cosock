@@ -115,7 +115,7 @@ end
 function m.run()
   local runstarttime = socket.gettime()
   while true do
-    print("================= %s ======================", socket.gettime() - runstarttime)
+    print(string.format("================= %s ======================", socket.gettime() - runstarttime))
     local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
     local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
 
@@ -239,12 +239,12 @@ function m.run()
     --for k,v in pairs(recvt) do print("r", k, v) end
     --for k,v in pairs(sendt) do print("s", k, v) end
     local recvr, sendr, err = socket.select(recvt, sendt, timeout)
-    print("return select", #recvr, #sendr)
+    print("return select", #(recvr or {}), #(sendr or {}))
 
     if err and err ~= "timeout" then error(err) end
 
     -- call waker on recieve-ready sockets
-    for _,lskt in ipairs(recvr) do
+    for _,lskt in ipairs(recvr or {}) do
       local skt = socketwrappermap[lskt]
       assert(skt, "unknown socket")
       assert(skt._wake, "unwakeable socket")
@@ -252,7 +252,7 @@ function m.run()
     end
 
     -- call waker on send-ready sockets
-    for _,lskt in ipairs(sendr) do
+    for _,lskt in ipairs(sendr or {}) do
       local skt = socketwrappermap[lskt]
       assert(skt, "unknown socket")
       assert(skt._wake, "unwakeable socket")
