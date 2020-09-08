@@ -23,7 +23,7 @@ function m.receiver:receive()
   while true do
     if #self.link.queue > 0 then
       local event = table.remove(self.link.queue, 1)
-      return event
+      return event.msg
     elseif self.link.closed then
       return nil, "closed"
     else
@@ -57,7 +57,8 @@ end
 function m.sender:send(msg)
   -- TODO: Allow setting an upper level on the queue size for backpressure
   if not self.link.closed then
-    table.insert(self.link.queue, msg)
+    -- wapping in table allows `nil` to be sent as a message
+    table.insert(self.link.queue, {msg = msg})
     if self.link.waker then
       self.link.waker()
     end
