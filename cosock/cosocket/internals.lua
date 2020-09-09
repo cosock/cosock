@@ -45,4 +45,30 @@ function m.passthroughbuilder(recvmethods, sendmethods)
   end
 end
 
+function m.setuprealsocketwaker(socket, kinds)
+  kinds = kinds or {"sendr", "recvr"}
+  local kindmap = {}
+  for _,kind in ipairs(kinds) do kindmap[kind] = true end
+
+  socket.setwaker = function(self, kind, waker)
+    assert(kindmap[kind], "unsupported wake kind: "..tostring(kind))
+    self.wakers = self.wakers or {}
+    assert((not waker) or (not self.wakers[kind]),
+      tostring(kind).." waker already set, sockets can only block one thread per waker kind")
+    self.wakers[kind] = waker
+  end
+
+  socket._wake = function(self, kind, ...)
+    local wakers = self.wakers or {}
+    if wakers[kind] then
+      wakers[kind](...)
+      wakers[kind] = nil
+      return true
+    else
+      print("warning attempt to wake, but no waker set")
+      return false
+    end
+  end
+end
+
 return m
