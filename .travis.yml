@@ -17,6 +17,7 @@ before_install:
 script:
   - timeout 5 lua test/threads/spawn-child-and-die.lua
   - timeout 5 lua test/channel/basic.lua
+  - timeout 5 lua test/channel/via-select.lua
   - timeout 5 lua test/tcp/client-multi.lua
   - timeout 5 lua test/tcp/client-timeout.lua
   - timeout 5 lua test/udp/client-timeout.lua

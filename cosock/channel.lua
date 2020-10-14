@@ -43,6 +43,9 @@ function m.receiver:setwaker(kind, waker)
   assert(self.link.waker == nil or waker == nil,
          "waker already set, receive can't be waited on from multiple places at once")
   self.link.waker = waker
+
+  -- if messages waiting, immediately wake
+  if #self.link.queue > 0 and waker then waker() end
 end
 
 m.sender = {}
