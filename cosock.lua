@@ -163,7 +163,11 @@ function m.run()
               for _, skt in pairs(sockets) do
                 assert(skt.setwaker, "non-wakeable socket")
                 print("set waker", kind)
-                skt:setwaker(kind, function() wake_thread(readythreads, thread, kind, skt) end)
+                skt:setwaker(kind, function()
+                  -- unset waker so we can't double wake
+                  skt:setwaker(kind, nil)
+                  wake_thread(readythreads, thread, kind, skt)
+                end)
               end
             end
           end
