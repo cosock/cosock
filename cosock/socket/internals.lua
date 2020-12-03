@@ -10,12 +10,12 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         local ret = {isock[method](isock, ...)}
         local status = ret[1]
         local err = ret[2]
-        if err == "timeout" then
-          local kind = recvmethods[method] and "recvr" or sendmethods[method] and "sendr"
+        if err and (err == recvmethods[method] or err == sendmethods[method]) then
+          local kind = (err == recvmethods[method]) and "recvr" or (err == sendmethods[method]) and "sendr"
 
           assert(kind, "about to yield on method that is niether recv nor send")
-          local recvr, sendr, rterr = coroutine.yield(recvmethods[method] and {self} or {},
-                                                      sendmethods[method] and {self} or {},
+          local recvr, sendr, rterr = coroutine.yield(kind == "recvr" and {self} or {},
+                                                      kind == "sendr" and {self} or {},
                                                       self.timeout)
 
           -- woken, unset waker
@@ -23,7 +23,7 @@ function m.passthroughbuilder(recvmethods, sendmethods)
 
           if rterr then return nil --[[ TODO: value? ]], rterr end
 
-          if recvmethods[method] then
+          if kind == "recvr" then
             assert(recvr and #recvr == 1, "thread resumed without awaited socket or error (or too many sockets)")
             assert(sendr == nil or #sendr == 0, "thread resumed with unexpected socket")
           else

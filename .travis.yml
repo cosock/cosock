@@ -14,6 +14,7 @@ before_install:
   - source $HOME/env/bin/activate          # Add directory with all installed binaries to PATH.
   - luarocks install luacheck
   - luarocks install luasocket
+  - luarocks install luasec
 
 script:
   - timeout 5 lua test/threads/spawn-child-and-die.lua
@@ -22,4 +23,6 @@ script:
   - timeout 5 lua test/tcp/client-multi.lua
   - timeout 5 lua test/tcp/client-timeout.lua
   - timeout 5 lua test/udp/client-timeout.lua
+  - timeout 5 lua test/ssl/client-multi.lua
+  - timeout 5 lua test/ssl/client-timeout.lua
   - luacheck .

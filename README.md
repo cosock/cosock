@@ -8,3 +8,8 @@ undocumented APIs are out of scope for now (however, small quirks that
 are heavily depened on in the ecosystem will be considered).
 
 For now see the tests folder for example usage.
+
+## Testing
+To run ssl tests, test keys and certificates first need to be generated via openssl. To do so run:
+
+    sh tests/ssl/certs/generate.sh
