@@ -1,44 +1,28 @@
-local luasocket = require "socket"
-local internals = require "cosock.cosocket.internals"
+local lsocket = require "socket"
+local internals = require "cosock.socket.internals"
 
 local m = {}
 
 local recvmethods = {
   receive = true,
   receivefrom = true,
-  accept = true,
 }
 
 local sendmethods = {
   send = true,
   sendto = true,
-  connect = true, --TODO: right?
 }
 
 setmetatable(m, {__call = function()
-  local inner_sock, err = luasocket.tcp()
+  local inner_sock, err = lsocket.udp()
   if not inner_sock then return inner_sock, err end
   inner_sock:settimeout(0)
-  return setmetatable({inner_sock = inner_sock, class = "tcp{master}"}, { __index = m})
+  return setmetatable({inner_sock = inner_sock, class = "udp{unconnected}"}, { __index = m})
 end})
 
 local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
 
-m.accept = passthrough("accept", function(inner_sock)
-  assert(inner_sock, "transform called on error from accept")
-  inner_sock:settimeout(0)
-  return setmetatable({inner_sock = inner_sock, class = "tcp{client}"}, { __index = m})
-end)
-
-m.bind = passthrough("bind")
-
-m.class = function(self)
-  return self.inner_sock.class()
-end
-
 m.close = passthrough("close")
-
-m.connect = passthrough("connect")
 
 m.dirty = passthrough("dirty")
 
@@ -52,24 +36,27 @@ m.getpeername = passthrough("getpeername")
 
 m.getsockname = passthrough("getsockname")
 
-m.getstats = passthrough("getstats")
-
-m.listen = passthrough("listen")
-
 m.receive = passthrough("receive")
 
+m.receivefrom = passthrough("receivefrom")
+
 m.send = passthrough("send")
+
+m.sendto = passthrough("sendto")
 
 m.setfd = passthrough("setfd")
 
 m.setoption = passthrough("setoption")
 
-m.setstats = passthrough("setstats")
+m.setpeername = passthrough("setpeername")
+
+m.setsockname = passthrough("setsockname")
 
 function m:settimeout(timeout)
   self.timeout = timeout
 end
 
 internals.setuprealsocketwaker(m)
+
 
 return m

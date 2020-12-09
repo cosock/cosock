@@ -1,5 +1,5 @@
-local cosocket = require "cosock.cosocket"
-local socket = require "socket"
+local socket = require "cosock.socket"
+local nativesocket = require "socket"
 local channel = require "cosock.channel"
 
 local weaktable = { __mode = "kv" } -- mark table as having weak refs to keys and values
@@ -17,7 +17,7 @@ local print = function() end
 
 local m = {}
 
-m.socket = cosocket
+m.socket = socket
 m.channel = channel
 
 local timers = {}
@@ -28,7 +28,7 @@ do
   -- and an optional reference object for cancellation
   timers.set = function(timeout, callback, ref)
     print("timer set: %s,%s", timeout, ref)
-    local now = socket.gettime()
+    local now = nativesocket.gettime()
     local timeoutat = timeout + now
     print(timeoutat, timeout, now)
     local timeoutinfo = {timeoutat = timeoutat, callback = callback, ref = ref}
@@ -60,7 +60,7 @@ do
       end
     )
 
-    local now = socket.gettime()
+    local now = nativesocket.gettime()
 
     -- process timeout callback and remove
     while timeouts[1] and (timeouts[1].timeoutat == nil or timeouts[1].timeoutat < now) do
@@ -83,7 +83,7 @@ end
 
 function m.spawn(fn, name)
   local thread = coroutine.create(fn)
-  print("cosocket spawn", name or thread)
+  print("socket spawn", name or thread)
   threadnames[thread] = name
   threads[thread] = thread
   readythreads[thread] = {}
@@ -113,9 +113,9 @@ end
 -- returns it filters the list of ready sockets out each thread that was waiting on each or
 -- determines which has a timeout that has ellapsed.
 function m.run()
-  local runstarttime = socket.gettime()
+  local runstarttime = nativesocket.gettime()
   while true do
-    print(string.format("================= %s ======================", socket.gettime() - runstarttime))
+    print(string.format("================= %s ======================", nativesocket.gettime() - runstarttime))
     local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
     local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
 
@@ -242,7 +242,7 @@ function m.run()
     print("start select", #recvt, #sendt, timeout)
     --for k,v in pairs(recvt) do print("r", k, v) end
     --for k,v in pairs(sendt) do print("s", k, v) end
-    local recvr, sendr, err = socket.select(recvt, sendt, timeout)
+    local recvr, sendr, err = nativesocket.select(recvt, sendt, timeout)
     print("return select", #(recvr or {}), #(sendr or {}))
 
     if err and err ~= "timeout" then error(err) end
