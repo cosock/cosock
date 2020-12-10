@@ -1,18 +1,18 @@
 local luasocket = require "socket"
 
-local tcp = assert(require "cosock.cosocket.tcp")
-local udp = assert(require "cosock.cosocket.udp")
+local tcp = assert(require "cosock.socket.tcp")
+local udp = assert(require "cosock.socket.udp")
 
---- cosocket: a coroutine wrapped luasocket interface
+--- socket: a coroutine wrapped luasocket interface
 ---
---- The goal of cosocket is to provide as close to a pure luasocket interface as
+--- The goal of socket is to provide as close to a pure luasocket interface as
 --- possible which can be run within recursive coroutines.
 ---
 --- (It's not 100% there yet.)
 local m = {}
 
 -- extraced from luasocket 3.0-rc1
-m._VERSION = "cosocket 3.0-rc1"
+m._VERSION = "socket 3.0-rc1"
 m._SETSIZE = 1024
 m.BLOCKSIZE = 2048
 
