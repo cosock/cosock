@@ -1,6 +1,7 @@
 local socket = require "cosock.socket"
 local nativesocket = require "socket"
 local channel = require "cosock.channel"
+local ssl = require "cosock.ssl"
 
 local weaktable = { __mode = "kv" } -- mark table as having weak refs to keys and values
 local weakkeys = { __mode = "k" } -- mark table as having weak refs to keys
@@ -19,6 +20,7 @@ local m = {}
 
 m.socket = socket
 m.channel = channel
+m.ssl = ssl
 
 local timers = {}
 do

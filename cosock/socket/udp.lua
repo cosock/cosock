@@ -4,13 +4,13 @@ local internals = require "cosock.socket.internals"
 local m = {}
 
 local recvmethods = {
-  receive = true,
-  receivefrom = true,
+  receive = "timeout",
+  receivefrom = "timeout",
 }
 
 local sendmethods = {
-  send = true,
-  sendto = true,
+  send = "timeout",
+  sendto = "timeout",
 }
 
 setmetatable(m, {__call = function()
