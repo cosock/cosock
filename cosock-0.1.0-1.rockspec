@@ -1,8 +1,8 @@
 package = "cosock"
-version = "0.0.1-1"
+version = "0.1.0-1"
 source = {
   url = "git://github.com/cosock/cosock.git",
-  tag = "0.0.1"
+  tag = "0.1.0"
 }
 description = {
   summary = "A coroutine executor with a bare luasocket like interface",
@@ -24,9 +24,10 @@ build = {
   modules = {
     cosock = "cosock.lua",
     ["cosock.channel"] = "cosock/channel.lua",
-    ["cosock.cosocket"] = "cosock/cosocket.lua",
-    ["cosock.cosocket.internals"] = "cosock/cosocket/internals.lua",
-    ["cosock.cosocket.tcp"] = "cosock/cosocket/tcp.lua",
-    ["cosock.cosocket.udp"] = "cosock/cosocket/udp.lua"
+    ["cosock.socket"] = "cosock/socket.lua",
+    ["cosock.socket.internals"] = "cosock/socket/internals.lua",
+    ["cosock.socket.tcp"] = "cosock/socket/tcp.lua",
+    ["cosock.socket.udp"] = "cosock/socket/udp.lua",
+    ["cosock.ssl"] = "cosock/ssl.lua",
   }
 }
