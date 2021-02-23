@@ -94,7 +94,7 @@ end
 -- must reimpl in lua, luasocket impls in C preventing yielding across this call
 m.protect = function (func)
   return function(...)
-    local retvals = {coxpcall.pcall(func, ...)}
+    local retvals = {xpcall(func, debug.traceback, ...)}
     if retvals[1] == true then
       table.remove(retvals, 1)
       return table.unpack(retvals)

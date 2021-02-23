@@ -14,7 +14,7 @@ local socketwrappermap = setmetatable({}, weaktable) -- from native socket to as
 local threaderrorhandler = nil -- TODO: allow setting error handler
 
 -- silence print statements in this file
---local print = function() end
+local print = function() end
 
 local m = {}
 

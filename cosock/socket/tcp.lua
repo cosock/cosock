@@ -68,6 +68,8 @@ m.setstats = passthrough("setstats")
 
 function m:settimeout(timeout)
   self.timeout = timeout
+
+  return 1.0
 end
 
 internals.setuprealsocketwaker(m)
