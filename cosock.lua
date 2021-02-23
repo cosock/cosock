@@ -14,7 +14,7 @@ local socketwrappermap = setmetatable({}, weaktable) -- from native socket to as
 local threaderrorhandler = nil -- TODO: allow setting error handler
 
 -- silence print statements in this file
-local print = function() end
+--local print = function() end
 
 local m = {}
 
@@ -80,6 +80,51 @@ do
     else
       return nil
     end
+  end
+end
+
+-- asyncify
+do
+  local realrequire = require
+  local function wrappedrequire(name)
+    print("internal require for", name)
+    --[[ Our API is incomplete, just choose a few specific modules for now
+    if string.sub(name, 1, 6) == "socket" then
+      name = "cosock."..name
+    end
+    ]]
+
+    if name == "socket" then
+      name = "cosock.socket"
+    end
+
+    return realrequire(name)
+  end
+
+  local fakeenv = {
+    require = wrappedrequire
+  }
+  setmetatable(fakeenv, {__index = _ENV })
+
+  function m.asyncify(name)
+    local err
+    for _,searcher in ipairs(package.searchers) do
+      -- TODO: what do I do with loc (eg. file path loaded from)?
+      local ret, loc = searcher(name)
+      if type(ret) == "function" then
+        -- set loader env to fake env to override calls to `require`
+        debug.setupvalue(ret, 1, fakeenv)
+        -- load module with loader
+        local module = ret()
+
+        return module
+      else
+        -- non-function values mean error
+        err = ret
+      end
+    end
+
+    return err
   end
 end
 
@@ -182,7 +227,11 @@ function m.run()
           if not status and not threaderrorhandler then
             local err = threadrecvt_or_err
             if debug and debug.traceback then
-              error(debug.traceback(thread, err))
+              if type(err) == "table" then
+                error(debug.traceback(thread, err))
+              else
+                error(debug.traceback(thread, tostring(err)))
+              end
             else
               error(err)
             end

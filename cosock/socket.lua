@@ -75,9 +75,34 @@ m.dns = luasocket.dns
 
 m.gettime = luasocket.gettime
 
-m.newtry = luasocket.newtry
+-- must reimpl in lua, luasocket impls in C preventing yielding across this call
+m.newtry = function (finalizer)
+  return function(ret1, ...) -- new "try"
+    local args = {...}
 
-m.protect = luasocket.protect
+    if ret1 == nil then
+      if finalizer ~= nil and type(finalizer) == "function" then
+        finalizer()
+      end
+      return nil, error(args[1]) -- return ret2 which is optional error message passed in by caller
+    else
+      return ret1, table.unpack(args)
+    end
+  end
+end
+
+-- must reimpl in lua, luasocket impls in C preventing yielding across this call
+m.protect = function (func)
+  return function(...)
+    local retvals = {coxpcall.pcall(func, ...)}
+    if retvals[1] == true then
+      table.remove(retvals, 1)
+      return table.unpack(retvals)
+    else
+      return nil, retvals[2]
+    end
+  end
+end
 
 m.select = function(recvt, sendt, timeout)
   return coroutine.yield(recvt, sendt, timeout)
@@ -106,7 +131,8 @@ m.tcp6 = function()
   return setmetatable({inner_sock = inner_sock, class = "tcp{master}"}, { __index = tcp})
 end
 
-m.try = luasocket.try
+-- must reimpl in lua, luasocket impls in C preventing yielding across this call
+m.try = m.newtry()
 
 m.udp = udp
 
