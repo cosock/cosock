@@ -21,7 +21,13 @@ function m.passthroughbuilder(recvmethods, sendmethods)
           -- woken, unset waker
           self.wakers[kind] = nil
 
-          if rterr then return nil --[[ TODO: value? ]], rterr end
+          if rterr then
+            if rterr == err then
+              return unpack(ret)
+            else
+              return nil --[[ TODO: value? ]], rterr
+            end
+          end
 
           if kind == "recvr" then
             assert(recvr and #recvr == 1, "thread resumed without awaited socket or error (or too many sockets)")
