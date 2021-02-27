@@ -10,7 +10,7 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         local ret = {isock[method](isock, ...)}
         local status = ret[1]
         local err = ret[2]
-        if err and (err == recvmethods[method] or err == sendmethods[method]) then
+        if not status and err and (err == recvmethods[method] or err == sendmethods[method]) then
           local kind = (err == recvmethods[method]) and "recvr" or (err == sendmethods[method]) and "sendr"
 
           assert(kind, "about to yield on method that is niether recv nor send")
