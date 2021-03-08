@@ -87,7 +87,6 @@ end
 do
   local realrequire = require
   local function wrappedrequire(name)
-    print("internal require for", name)
     --[[ Our API is incomplete, just choose a few specific modules for now
     if string.sub(name, 1, 6) == "socket" then
       name = "cosock."..name
@@ -109,24 +108,28 @@ do
   function m.asyncify(name)
     local err
     for _,searcher in ipairs(package.searchers) do
-      -- TODO: what do I do with loc (eg. file path loaded from)?
-      local ret, loc = searcher(name)
-      if type(ret) == "function" then
+      local loader, loc = searcher(name)
+      if type(loader) == "function" then
         -- figure out which upvalue is env
         local upvalueidx = 0
         repeat
           upvalueidx = upvalueidx + 1
-          local name, _ = debug.getupvalue(ret, upvalueidx)
-        until not name or name == "_ENV"
+          local uvname, _ = debug.getupvalue(loader, upvalueidx)
+          if not uvname then upvalueidx = nil; break end
+        until uvname == "_ENV"
+
         -- set loader env to fake env to override calls to `require`
-        debug.setupvalue(ret, upvalueidx, fakeenv)
+        if upvalueidx then
+          debug.setupvalue(loader, upvalueidx, fakeenv)
+        end
+
         -- load module with loader
-        local module = ret()
+        local module = loader(name, loc)
 
         return module
       else
-        -- non-function values mean error
-        err = ret
+        -- non-function values mean error, keep last non-nil value
+        err = ret or err
       end
     end
 
@@ -233,11 +236,7 @@ function m.run()
           if not status and not threaderrorhandler then
             local err = threadrecvt_or_err
             if debug and debug.traceback then
-              if type(err) == "table" then
-                error(debug.traceback(thread, err))
-              else
-                error(debug.traceback(thread, tostring(err)))
-              end
+              error(debug.traceback(thread, err))
             else
               error(err)
             end
