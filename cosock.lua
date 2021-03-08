@@ -112,8 +112,14 @@ do
       -- TODO: what do I do with loc (eg. file path loaded from)?
       local ret, loc = searcher(name)
       if type(ret) == "function" then
+        -- figure out which upvalue is env
+        local upvalueidx = 0
+        repeat
+          upvalueidx = upvalueidx + 1
+          local name, _ = debug.getupvalue(ret, upvalueidx)
+        until not name or name == "_ENV"
         -- set loader env to fake env to override calls to `require`
-        debug.setupvalue(ret, 1, fakeenv)
+        debug.setupvalue(ret, upvalueidx, fakeenv)
         -- load module with loader
         local module = ret()
 
