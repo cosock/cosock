@@ -17,6 +17,7 @@ before_install:
   - luarocks install luasec
 
 script:
+  - timeout 5 lua test/error-handling/try-protect.lua
   - timeout 5 lua test/threads/spawn-child-and-die.lua
   - timeout 5 lua test/channel/basic.lua
   - timeout 5 lua test/channel/via-select.lua
