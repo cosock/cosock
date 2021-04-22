@@ -3,14 +3,35 @@ local m = {}
 local unpack = table.unpack or unpack
 
 function m.passthroughbuilder(recvmethods, sendmethods)
-  return function(method, transform)
+  return function(method, transformsrc)
     return function(self, ...)
+      local transform = transformsrc
+      if type(transform) == "function" then transform = transform() end
+      if transform then
+        assert(type(transform) == "table", "transformer must be table or function that returns table")
+        assert(not transform.input or type(transform.input) == "function", "input transformer not a function")
+        assert(not transform.blocked or type(transform.blocked) == "function", "blocked transformer not a function")
+        assert(not transform.output or type(transform.output) == "function", "output transformer not a function")
+      else
+        transform = {}
+      end
+
+      local inputparams = {...}
+
+      if transform.input then
+        inputparams = {transform.input(unpack(inputparams))}
+      end
+
       repeat
         local isock = self.inner_sock
-        local ret = {isock[method](isock, ...)}
+        local ret = {isock[method](isock, unpack(inputparams))}
         local status = ret[1]
         local err = ret[2]
+
         if not status and err and (err == recvmethods[method] or err == sendmethods[method]) then
+          if transform.blocked then
+            inputparams = {transform.blocked(unpack(ret))}
+          end
           local kind = (err == recvmethods[method]) and "recvr" or (err == sendmethods[method]) and "sendr"
 
           assert(kind, "about to yield on method that is niether recv nor send")
@@ -38,8 +59,8 @@ function m.passthroughbuilder(recvmethods, sendmethods)
           end
         elseif status then
           self.class = self.inner_sock.class
-          if transform then
-            return transform(unpack(ret))
+          if transform.output then
+            return transform.output(unpack(ret))
           else
             return unpack(ret)
           end
