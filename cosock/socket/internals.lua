@@ -44,7 +44,8 @@ function m.passthroughbuilder(recvmethods, sendmethods)
             return unpack(ret)
           end
         else
-          return unpack(ret)
+          -- for reasons I can't figure out `unpack(ret)` returns nothing when nil precedes other values
+          return ret[1], ret[2], ret[3], ret[4], ret[5]
         end
       until nil
     end
