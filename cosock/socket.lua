@@ -75,9 +75,39 @@ m.dns = luasocket.dns
 
 m.gettime = luasocket.gettime
 
-m.newtry = luasocket.newtry
+-- a unique marker for errors that come from try
+local tryerror = {}
 
-m.protect = luasocket.protect
+-- reimpl'ing here in lua, luasocket impls in C preventing yielding across this call
+m.newtry = function(finalizer)
+  return function(...)
+    local ret = {...}
+    if ret[1] == nil then
+      if type(finalizer) == "function" then finalizer() end
+      local err = {ret[2]}
+      setmetatable(err, tryerror)
+      error(err)
+    end
+    return ...
+  end
+end
+
+local function filtertryerror(status, firstorerr, ...)
+  if status then
+    return firstorerr, ...
+  elseif type(firstorerr) == "table" and getmetatable(firstorerr) == tryerror then
+    return nil
+  else
+    error(firstorerr, 3) -- 3 meaning, not here and not in protect, but where protect was called
+  end
+end
+
+-- reimpl'ing here in lua, luasocket impls in C preventing yielding across this call
+m.protect = function(func)
+  return function(...)
+    return filtertryerror(pcall(func, ...))
+  end
+end
 
 m.select = function(recvt, sendt, timeout)
   return coroutine.yield(recvt, sendt, timeout)
@@ -106,7 +136,8 @@ m.tcp6 = function()
   return setmetatable({inner_sock = inner_sock, class = "tcp{master}"}, { __index = tcp})
 end
 
-m.try = luasocket.try
+-- using our local lua impl, luasocket impls in C preventing yielding across this call
+m.try = m.newtry()
 
 m.udp = udp
 

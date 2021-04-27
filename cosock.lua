@@ -83,6 +83,60 @@ do
   end
 end
 
+-- asyncify
+do
+  local realrequire = require
+  local function wrappedrequire(name)
+    --[[ Our API is incomplete, just choose a few specific modules for now
+    if string.sub(name, 1, 6) == "socket" then
+      name = "cosock."..name
+    end
+    ]]
+
+    if name == "socket" then
+      name = "cosock.socket"
+    end
+
+    return realrequire(name)
+  end
+
+  local fakeenv = {
+    require = wrappedrequire
+  }
+  setmetatable(fakeenv, {__index = _ENV })
+
+  function m.asyncify(name)
+    local err
+    for _,searcher in ipairs(package.searchers) do
+      local loader, loc = searcher(name)
+      if type(loader) == "function" then
+        -- figure out which upvalue is env
+        local upvalueidx = 0
+        repeat
+          upvalueidx = upvalueidx + 1
+          local uvname, _ = debug.getupvalue(loader, upvalueidx)
+          if not uvname then upvalueidx = nil; break end
+        until uvname == "_ENV"
+
+        -- set loader env to fake env to override calls to `require`
+        if upvalueidx then
+          debug.setupvalue(loader, upvalueidx, fakeenv)
+        end
+
+        -- load module with loader
+        local module = loader(name, loc)
+
+        return module
+      else
+        -- non-function values mean error, keep last non-nil value
+        err = loader or err
+      end
+    end
+
+    return err
+  end
+end
+
 function m.spawn(fn, name)
   local thread = coroutine.create(fn)
   print("socket spawn", name or thread)

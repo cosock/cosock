@@ -17,6 +17,7 @@ before_install:
   - luarocks install luasec
 
 script:
+  - timeout 5 lua test/error-handling/try-protect.lua
   - timeout 5 lua test/threads/spawn-child-and-die.lua
   - timeout 5 lua test/channel/basic.lua
   - timeout 5 lua test/channel/via-select.lua
@@ -25,4 +26,6 @@ script:
   - timeout 5 lua test/udp/client-timeout.lua
   - timeout 5 lua test/ssl/client-multi.lua
   - timeout 5 lua test/ssl/client-timeout.lua
+    # travis blocks outgoing network traffic, disable, but leave it here to show it's intentional
+    #- timeout 5 lua test/http/single-client.lua
   - luacheck .
