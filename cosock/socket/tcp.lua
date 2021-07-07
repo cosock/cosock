@@ -1,0 +1,131 @@
+local luasocket = require "socket"
+local internals = require "cosock.socket.internals"
+
+local m = {}
+
+local recvmethods = {
+  receive = "timeout",
+  receivefrom = "timeout",
+  accept = "timeout",
+}
+
+local sendmethods = {
+  send = "timeout",
+  sendto = "timeout",
+  connect = "timeout", --TODO: right?
+}
+
+setmetatable(m, {__call = function()
+  local inner_sock, err = luasocket.tcp()
+  if not inner_sock then return inner_sock, err end
+  inner_sock:settimeout(0)
+  return setmetatable({inner_sock = inner_sock, class = "tcp{master}"}, { __index = m})
+end})
+
+local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
+
+m.accept = passthrough("accept", {
+  output = function(inner_sock)
+    assert(inner_sock, "transform called on error from accept")
+    inner_sock:settimeout(0)
+    return setmetatable({inner_sock = inner_sock, class = "tcp{client}"}, { __index = m})
+  end
+})
+
+m.bind = passthrough("bind")
+
+m.class = function(self)
+  return self.inner_sock.class()
+end
+
+m.close = passthrough("close")
+
+m.connect = passthrough("connect")
+
+m.dirty = passthrough("dirty")
+
+m.getfamily = passthrough("getfamily")
+
+m.getfd = passthrough("getfd")
+
+m.getoption = passthrough("getoption")
+
+m.getpeername = passthrough("getpeername")
+
+m.getsockname = passthrough("getsockname")
+
+m.getstats = passthrough("getstats")
+
+m.listen = passthrough("listen")
+
+m.receive = passthrough("receive", function()
+  local pattern, prefix
+  -- save partial resuts on timeout
+  local parts = {}
+  local bytes_remaining
+  local function new_part(part)
+    if type(part) == "string" and #part > 0 then
+      table.insert(parts, part)
+      if bytes_remaining then
+        bytes_remaining = bytes_remaining - #part
+      end
+    end
+  end
+  return {
+    -- transform input parameters
+    input = function(ipattern, iprefix)
+      assert(#parts == 0, "input transformer called more than once")
+      -- save these for later
+      pattern = ipattern
+      if type(pattern) == "number" then bytes_remaining = pattern end
+      prefix = iprefix
+
+      return pattern, prefix
+    end,
+    -- receives results of luasocket call when we need to block, provides parameters to pass when next ready
+    blocked = function(_, _, partial)
+      new_part(partial)
+      if bytes_remaining then
+        assert(bytes_remaining > 0, "somehow about to block despite being done")
+        return bytes_remaining, prefix
+      else
+        return pattern, prefix
+      end
+    end,
+    -- transform output after final success or (non-block) error
+    output = function(recv, err, partial)
+      assert(not (recv and partial), "socket recieve returned both data and partial data")
+
+      if #parts == 0 then
+        return recv, err, partial
+      end
+
+      new_part(recv or partial)
+      local data = table.concat(parts)
+
+      if err then
+        return nil, err, data
+      else
+        return data
+      end
+    end,
+  }
+end)
+
+m.send = passthrough("send")
+
+m.setfd = passthrough("setfd")
+
+m.setoption = passthrough("setoption")
+
+m.setstats = passthrough("setstats")
+
+function m:settimeout(timeout)
+  self.timeout = timeout
+
+  return 1.0
+end
+
+internals.setuprealsocketwaker(m)
+
+return m

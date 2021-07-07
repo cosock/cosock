@@ -1,16 +1,16 @@
 local lsocket = require "socket"
-local internals = require "cosock.cosocket.internals"
+local internals = require "cosock.socket.internals"
 
 local m = {}
 
 local recvmethods = {
-  receive = true,
-  receivefrom = true,
+  receive = "timeout",
+  receivefrom = "timeout",
 }
 
 local sendmethods = {
-  send = true,
-  sendto = true,
+  send = "timeout",
+  sendto = "timeout",
 }
 
 setmetatable(m, {__call = function()
@@ -54,6 +54,11 @@ m.setsockname = passthrough("setsockname")
 
 function m:settimeout(timeout)
   self.timeout = timeout
+
+  return 1.0
 end
+
+internals.setuprealsocketwaker(m)
+
 
 return m
