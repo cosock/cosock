@@ -1,3 +1,7 @@
+# cosock
+
+![cosock logo](./cosock%20logo.svg)
+
 cosock is a library that provides a coroutine executor for luasocket code.
 Unlike existing coroutine executors it aims to provide a socket facade API
 inside each coroutine that is as close to the native luasocket API as is
