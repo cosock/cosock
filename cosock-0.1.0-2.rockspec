@@ -1,5 +1,5 @@
 package = "cosock"
-version = "0.1.0-1"
+version = "0.1.0-2"
 source = {
   url = "git://github.com/cosock/cosock.git",
   tag = "0.1.0"
@@ -17,7 +17,8 @@ description = {
 }
 dependencies = {
   "lua >= 5.1",
-  "luasocket >= 3.0rc1-2"
+  "luasocket >= 3.0rc1-2",
+  "luasec >= 1",
 }
 build = {
   type = "builtin",
