@@ -4,13 +4,13 @@ local internals = require "cosock.socket.internals"
 local m = {}
 
 local recvmethods = {
-  dohandshake = "wantread",
-  receive = "wantread"
+  dohandshake = { wantread = true },
+  receive = { wantread = true },
 }
 
 local sendmethods = {
-  dohandshake = "wantwrite",
-  send = "wantwrite"
+  dohandshake = { wantwrite = true },
+  send = { wantwrite = true },
 }
 
 local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)

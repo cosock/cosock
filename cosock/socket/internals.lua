@@ -28,11 +28,11 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         local status = ret[1]
         local err = ret[2]
 
-        if not status and err and (err == recvmethods[method] or err == sendmethods[method]) then
+        if not status and err and ((recvmethods[method] or {})[err] or (sendmethods[method] or {})[err]) then
           if transform.blocked then
             inputparams = {transform.blocked(unpack(ret))}
           end
-          local kind = (err == recvmethods[method]) and "recvr" or (err == sendmethods[method]) and "sendr"
+          local kind = ((recvmethods[method] or {})[err]) and "recvr" or ((sendmethods[method] or {})[err]) and "sendr"
 
           assert(kind, "about to yield on method that is niether recv nor send")
           local recvr, sendr, rterr = coroutine.yield(kind == "recvr" and {self} or {},
