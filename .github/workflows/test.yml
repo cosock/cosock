@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        luaVersion: 
+          - "5.1"
+          - "5.2"
+          - "5.3"
+          - "5.4"
+          # - "luajit-2.0"
+          # - "luajit-2.1"
+        
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Dump matrix context
+        env:
+          MATRIX_CONTEXT: ${{ toJSON(matrix) }}
+        run: echo "$MATRIX_CONTEXT"
+      - uses: xpol/setup-lua@v0.3
+        with:
+          lua-version: ${{ matrix.luaVersion }}
+      - uses: leafo/gh-actions-luarocks@v4
+      - name: install luacheck
+        run: luarocks install luacheck
+      - name: install luasocket
+        run: luarocks install luasocket
+      - name: install luasec
+        run: luarocks install luasec
+      - name: test
+        run: |
+          timeout 5 lua test/error-handling/try-protect.lua
+          timeout 5 lua test/threads/spawn-child-and-die.lua
+          timeout 5 lua test/channel/basic.lua
+          timeout 5 lua test/channel/via-select.lua
+          timeout 5 lua test/tcp/client-multi.lua
+          timeout 5 lua test/tcp/client-timeout.lua
+          timeout 5 lua test/udp/client-timeout.lua
+          timeout 5 lua test/ssl/client-multi.lua
+          timeout 5 lua test/ssl/client-timeout.lua
+          # actions block outgoing network traffic, disable, but leave it here to show it's intentional 
+          # timeout 5 lua test/http/single-client.lua
