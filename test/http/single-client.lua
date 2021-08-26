@@ -1,3 +1,5 @@
+-- disable this test for 5.1 since we can't asyncify
+if _VERSION == "Lua 5.1" then os.exit(0) end
 local cosock = require "cosock"
 local socket = require "cosock.socket"
 local http = cosock.asyncify "socket.http"
