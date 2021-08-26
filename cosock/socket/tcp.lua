@@ -4,15 +4,15 @@ local internals = require "cosock.socket.internals"
 local m = {}
 
 local recvmethods = {
-  receive = "timeout",
-  receivefrom = "timeout",
-  accept = "timeout",
+  receive = {timeout = true},
+  receivefrom = {timeout = true},
+  accept = {timeout = true},
 }
 
 local sendmethods = {
-  send = "timeout",
-  sendto = "timeout",
-  connect = "timeout", --TODO: right?
+  send = {timeout = true},
+  sendto = {timeout = true},
+  connect = {timeout = true, ["Operation already in progress"] = true}, --TODO: right?
 }
 
 setmetatable(m, {__call = function()
