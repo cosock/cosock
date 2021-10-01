@@ -1,8 +1,8 @@
 package = "cosock"
-version = "0.1.0-2"
+version = "0.2.0-1"
 source = {
   url = "git://github.com/cosock/cosock.git",
-  tag = "0.1.0"
+  tag = "0.2.0"
 }
 description = {
   summary = "A coroutine executor with a bare luasocket like interface",
