@@ -13,6 +13,47 @@ local readythreads = {} -- like wakethreads, but for next loop (can be modified 
 local socketwrappermap = setmetatable({}, weaktable) -- from native socket to async socket
 local threaderrorhandler = nil -- TODO: allow setting error handler
 
+-- save print for when we actually need to print
+local alwaysprint = print
+
+-- count elements in non-array table
+local function tablecount(t)
+  local count = 0
+  for _,_ in pairs(t) do count = count + 1 end
+  return count
+end
+
+-- dump debugging info to stdout
+local function dump_thread_state(wokenthreads)
+  wokenthreads = wokenthreads or {}
+  alwaysprint("vvvvvvvvvvvvvvvvvvvvvvvv DUMP STATE vvvvvvvvvvvvvvvvvvvvvvvv")
+  local tb = debug and debug.traceback or function() alwaysprint("debug.traceback not avaliable") end
+  alwaysprint("threads woken in last turn ("..tostring(tablecount(wokenthreads))..")")
+  alwaysprint("=========================================================")
+  for thread, _ in pairs(wokenthreads) do
+    alwaysprint(thread, threadnames[thread])
+    alwaysprint(tb(thread))
+    alwaysprint("recvt:", #((threadswaitingfor[thread] or {}).recvr or {}))
+    alwaysprint("sendt:", #((threadswaitingfor[thread] or {}).sendr or {}))
+    alwaysprint("timeout:", (threadswaitingfor[thread] or {}).timeout)
+    alwaysprint("---------------------------------------------------------")
+  end
+  alwaysprint("threads not woken in last turn ("..tostring(tablecount(threads) - tablecount(wokenthreads))..")")
+  alwaysprint("=========================================================")
+  for thread, _ in pairs(threads) do
+    if not wokenthreads[thread] then
+      alwaysprint(thread, threadnames[thread])
+      alwaysprint(tb(thread))
+      alwaysprint("recvt:", #((threadswaitingfor[thread] or {}).recvr or {}))
+      alwaysprint("sendt:", #((threadswaitingfor[thread] or {}).sendr or {}))
+      alwaysprint("timeout:", (threadswaitingfor[thread] or {}).timeout)
+      alwaysprint("---------------------------------------------------------")
+    end
+  end
+
+  alwaysprint("^^^^^^^^^^^^^^^^^^^^^^^^ DUMP STATE ^^^^^^^^^^^^^^^^^^^^^^^^")
+end
+
 -- silence print statements in this file
 local print = function() end
 
@@ -291,8 +332,9 @@ function m.run()
 
     if not timeout and #recvt == 0 and #sendt == 0 then
       -- in case of bugs
+      dump_thread_state(wakethreads)
       error("cosock tried to call socket.select with no sockets and no timeout. "
-            .."this is a bug, please report it")
+            .."this is a bug, please report it, including the above dump state")
     end
 
     print("start select", #recvt, #sendt, timeout)
