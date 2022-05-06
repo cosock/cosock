@@ -48,5 +48,6 @@ jobs:
           timeout 5 lua test/udp/client-timeout.lua
           timeout 5 lua test/ssl/client-multi.lua
           timeout 5 lua test/ssl/client-timeout.lua
-          timeout 5 lua test/http/single-client.lua
-          timeout 5 lua test/https/single-client.lua
+          timeout 5 lua test/http/http.lua
+          timeout 5 lua test/http/https-via-ssl.lua
+          timeout 5 lua test/http/https-via-http.lua
