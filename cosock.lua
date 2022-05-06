@@ -136,6 +136,12 @@ do
 
     if name == "socket" then
       name = "cosock.socket"
+    elseif name == "socket.http" then
+      name = "cosock.socket.http"
+    elseif name == "ssl.https" then
+      name = "cosock.ssl.https"
+    elseif name == "ssl" then
+      name = "cosock.ssl"
     end
 
     return realrequire(name)
