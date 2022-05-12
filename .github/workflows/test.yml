@@ -36,18 +36,29 @@ jobs:
         run: luarocks install luasocket
       - name: install luasec
         run: luarocks install luasec
-      - name: test
-        run: |
-          timeout 5 lua test/error-handling/try-protect.lua
-          timeout 5 lua test/threads/spawn-child-and-die.lua
-          timeout 5 lua test/channel/basic.lua
-          timeout 5 lua test/channel/via-select.lua
-          timeout 5 lua test/tcp/client-multi.lua
-          timeout 5 lua test/tcp/client-timeout.lua
-          timeout 5 lua test/tcp/client-server-large-payload.lua
-          timeout 5 lua test/udp/client-timeout.lua
-          timeout 5 lua test/ssl/client-multi.lua
-          timeout 5 lua test/ssl/client-timeout.lua
-          timeout 5 lua test/http/http.lua
-          timeout 5 lua test/http/https-via-ssl.lua
-          timeout 5 lua test/http/https-via-http.lua
+      - name: try-protect
+        run: timeout 5 lua test/error-handling/try-protect.lua
+      - name: spawn-child-and-die
+        run: timeout 5 lua test/threads/spawn-child-and-die.lua
+      - name: basic channel
+        run: timeout 5 lua test/channel/basic.lua
+      - name: select channel
+        run: timeout 5 lua test/channel/via-select.lua
+      - name: tcp client-multi
+        run: timeout 5 lua test/tcp/client-multi.lua
+      - name: tcp client-timeout
+        run: timeout 5 lua test/tcp/client-timeout.lua
+      - name: tcp client-server-large-payload
+        run: timeout 5 lua test/tcp/client-server-large-payload.lua
+      - name: udp client-timeout
+        run: timeout 5 lua test/udp/client-timeout.lua
+      - name: ssl client-multi
+        run: timeout 5 lua test/ssl/client-multi.lua
+      - name: ssl client-timeout
+        run: timeout 5 lua test/ssl/client-timeout.lua
+      - name: http http
+        run: timeout 5 lua test/http/http.lua
+      - name: http https via ssl
+        run: timeout 5 lua test/http/https-via-ssl.lua
+      - name: http https via http
+        run: timeout 5 lua test/http/https-via-http.lua
