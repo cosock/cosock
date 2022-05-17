@@ -66,7 +66,11 @@ function m.passthroughbuilder(recvmethods, sendmethods)
           end
         else
           -- for reasons I can't figure out `unpack(ret)` returns nothing when nil precedes other values
-          return ret[1], ret[2], ret[3], ret[4], ret[5]
+          if transform.output then
+            return transform.output(ret[1], ret[2], ret[3], ret[4], ret[5])
+          else
+            return ret[1], ret[2], ret[3], ret[4], ret[5]
+          end
         end
       until nil
     end
