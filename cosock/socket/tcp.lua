@@ -78,18 +78,18 @@ m.receive = passthrough("receive", function()
       -- save these for later
       pattern = ipattern
       if type(pattern) == "number" then bytes_remaining = pattern end
-      prefix = iprefix
+      new_part(iprefix)
 
-      return pattern, prefix
+      return pattern
     end,
     -- receives results of luasocket call when we need to block, provides parameters to pass when next ready
     blocked = function(_, _, partial)
       new_part(partial)
       if bytes_remaining then
         assert(bytes_remaining > 0, "somehow about to block despite being done")
-        return bytes_remaining, prefix
+        return bytes_remaining
       else
-        return pattern, prefix
+        return pattern
       end
     end,
     -- transform output after final success or (non-block) error
