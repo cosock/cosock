@@ -59,7 +59,7 @@ m.getstats = passthrough("getstats")
 m.listen = passthrough("listen")
 
 m.receive = passthrough("receive", function()
-  local pattern, prefix
+  local pattern
   -- save partial resuts on timeout
   local parts = {}
   local bytes_remaining
