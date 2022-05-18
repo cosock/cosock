@@ -62,3 +62,5 @@ jobs:
         run: timeout 5 lua test/http/https-via-ssl.lua
       - name: http https via http
         run: timeout 5 lua test/http/https-via-http.lua
+      - name: asyncify-works
+        run: timeout 5 lua test/asyncify/asyncify-works.lua

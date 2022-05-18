@@ -59,6 +59,8 @@ local print = function() end
 
 local m = {}
 
+m._VERSION = "0.2.0"
+socket._COSOCK_VERSION = m._VERSION
 m.socket = socket
 m.channel = channel
 m.ssl = ssl

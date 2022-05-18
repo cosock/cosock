@@ -11,10 +11,9 @@ local udp = assert(require "cosock.socket.udp")
 --- (It's not 100% there yet.)
 local m = {}
 
--- extraced from luasocket 3.0-rc1
-m._VERSION = "socket 3.0-rc1"
-m._SETSIZE = 1024
-m.BLOCKSIZE = 2048
+m._VERSION = luasocket._VERSION
+m._SETSIZE = luasocket._SETSIZE
+m.BLOCKSIZE = luasocket.BLOCKSIZE
 
 m.bind = function(host, port, backlog)
   local ret
