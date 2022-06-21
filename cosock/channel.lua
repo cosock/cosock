@@ -27,7 +27,10 @@ function m.receiver:receive()
     elseif self.link.closed then
       return nil, "closed"
     else
-      coroutine.yield({self}, nil, self.timeout)
+      local _, _, err = coroutine.yield({self}, nil, self.timeout)
+      if err then
+        return nil, err
+      end
       self.link.waker = nil
     end
   end

@@ -44,6 +44,8 @@ jobs:
         run: timeout 5 lua test/channel/basic.lua
       - name: select channel
         run: timeout 5 lua test/channel/via-select.lua
+      - name: channel timeout
+        run: timeout 5 lua test/channel/recv-timesout.lua
       - name: tcp client-multi
         run: timeout 5 lua test/tcp/client-multi.lua
       - name: tcp client-timeout
