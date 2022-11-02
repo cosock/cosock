@@ -50,7 +50,7 @@ local function nobl_client(ip, port) -- doesn't block at all
 
       local data, err = ssl_sock:receive()
       print("nobl client reveived:", data, err)
-      assert(err == "timeout")
+      assert(err == "wantread")
       print("nobl client exit")
 
       ssl_sock:close()
@@ -98,7 +98,7 @@ local function fast_client(ip, port) -- waits very little
 
       local data, err = ssl_sock:receive()
       print("fast client reveived:", data, err)
-      assert(err == "timeout")
+      assert(err == "wantread")
       print("fast client exit")
 
       ssl_sock:close()
