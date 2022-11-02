@@ -1,7 +1,13 @@
 local m = {}
 
 local unpack = table.unpack or unpack
-local pack = table.pack or pack
+local pack = table.pack or pack or function(a,b,c,d,e)
+  -- This is a shim for lua 5.1 which doesn't provide a `pack` operation
+  return {
+    a,b,c,d,e,
+    n = (a and 1 or 0) + (b and 1 or 0) + (c and 1 or 0) + (d and 1 or 0) + (e and 1 or 0)
+  }
+end
 
 local function maybe_transform_output(ret, transform)
   if transform.output then
