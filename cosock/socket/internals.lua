@@ -1,6 +1,20 @@
 local m = {}
 
 local unpack = table.unpack or unpack
+local pack = table.pack or pack or function(a,b,c,d,e)
+  -- This is a shim for lua 5.1 which doesn't provide a `pack` operation
+  return {
+    a,b,c,d,e,
+    n = 0 and (e and 5) or (d and 4) or (c and 3) or (b and 2) or (a and 1)
+  }
+end
+
+local function maybe_transform_output(ret, transform)
+  if transform.output then
+    return transform.output(unpack(ret, 1, ret.n))
+  end
+  return unpack(ret, 1, ret.n)
+end
 
 function m.passthroughbuilder(recvmethods, sendmethods)
   return function(method, transformsrc)
@@ -16,21 +30,21 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         transform = {}
       end
 
-      local inputparams = {...}
+      local inputparams = pack(...)
 
       if transform.input then
-        inputparams = {transform.input(unpack(inputparams))}
+        inputparams = pack(transform.input(unpack(inputparams, 1, inputparams.n)))
       end
 
       repeat
         local isock = self.inner_sock
-        local ret = {isock[method](isock, unpack(inputparams))}
+        local ret = pack(isock[method](isock, unpack(inputparams, 1, inputparams.n)))
         local status = ret[1]
         local err = ret[2]
 
         if not status and err and ((recvmethods[method] or {})[err] or (sendmethods[method] or {})[err]) then
           if transform.blocked then
-            inputparams = {transform.blocked(unpack(ret))}
+            inputparams = pack(transform.blocked(unpack(ret, 1, ret.n)))
           end
           local kind = ((recvmethods[method] or {})[err]) and "recvr" or ((sendmethods[method] or {})[err]) and "sendr"
 
@@ -44,9 +58,9 @@ function m.passthroughbuilder(recvmethods, sendmethods)
 
           if rterr then
             if rterr == err then
-              return unpack(ret)
+              return maybe_transform_output(ret, transform)
             else
-              return nil --[[ TODO: value? ]], rterr
+              return maybe_transform_output(pack(nil, rterr), transform)
             end
           end
 
@@ -59,18 +73,9 @@ function m.passthroughbuilder(recvmethods, sendmethods)
           end
         elseif status then
           self.class = self.inner_sock.class
-          if transform.output then
-            return transform.output(unpack(ret))
-          else
-            return unpack(ret)
-          end
+          return maybe_transform_output(ret, transform)
         else
-          -- for reasons I can't figure out `unpack(ret)` returns nothing when nil precedes other values
-          if transform.output then
-            return transform.output(ret[1], ret[2], ret[3], ret[4], ret[5])
-          else
-            return ret[1], ret[2], ret[3], ret[4], ret[5]
-          end
+          return maybe_transform_output(ret, transform)
         end
       until nil
     end

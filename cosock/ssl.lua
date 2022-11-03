@@ -47,9 +47,23 @@ m.loadcertificate = passthrough("loadcertificate")
 
 m.newcontext = passthrough("newcontext")
 
-m.receive = passthrough("receive")
+m.receive = passthrough("receive", {
+  output = function(bytes, err, ...)
+    if err == "timeout" then
+      err = "wantread"
+    end
+    return bytes, err, ...
+  end
+})
 
-m.send = passthrough("send")
+m.send = passthrough("send", {
+  output = function(success, err, ...)
+    if err == "timeout" then
+      err = "wantwrite"
+    end
+    return success, err, ...
+  end
+})
 
 m.setdane = passthrough("setdane")
 
