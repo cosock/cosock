@@ -5,7 +5,7 @@ local pack = table.pack or pack or function(a,b,c,d,e)
   -- This is a shim for lua 5.1 which doesn't provide a `pack` operation
   return {
     a,b,c,d,e,
-    n = (a and 1 or 0) + (b and 1 or 0) + (c and 1 or 0) + (d and 1 or 0) + (e and 1 or 0)
+    n = 0 and (e and 5) or (d and 4) or (c and 3) or (b and 2) or (a and 1)
   }
 end
 
