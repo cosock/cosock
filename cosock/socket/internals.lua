@@ -11,9 +11,9 @@ end
 
 local function maybe_transform_output(ret, transform)
   if transform.output then
-    return transform.output(unpack(ret))
+    return transform.output(unpack(ret, 1, ret.n))
   end
-  return unpack(ret)
+  return unpack(ret, 1, ret.n)
 end
 
 function m.passthroughbuilder(recvmethods, sendmethods)
@@ -33,18 +33,18 @@ function m.passthroughbuilder(recvmethods, sendmethods)
       local inputparams = pack(...)
 
       if transform.input then
-        inputparams = pack(transform.input(unpack(inputparams)))
+        inputparams = pack(transform.input(unpack(inputparams, 1, inputparams.n)))
       end
 
       repeat
         local isock = self.inner_sock
-        local ret = pack(isock[method](isock, unpack(inputparams)))
+        local ret = pack(isock[method](isock, unpack(inputparams, 1, inputparams.n)))
         local status = ret[1]
         local err = ret[2]
 
         if not status and err and ((recvmethods[method] or {})[err] or (sendmethods[method] or {})[err]) then
           if transform.blocked then
-            inputparams = pack(transform.blocked(unpack(ret)))
+            inputparams = pack(transform.blocked(unpack(ret, 1, ret.n)))
           end
           local kind = ((recvmethods[method] or {})[err]) and "recvr" or ((sendmethods[method] or {})[err]) and "sendr"
 
