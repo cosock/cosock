@@ -25,10 +25,12 @@ end})
 local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
 
 m.accept = passthrough("accept", {
-  output = function(inner_sock)
-    assert(inner_sock, "transform called on error from accept")
+  output = function(inner_sock, err)
+    if not inner_sock or err ~= nil then
+      return nil, err
+    end
     inner_sock:settimeout(0)
-    return setmetatable({inner_sock = inner_sock, class = "tcp{client}"}, { __index = m})
+    return setmetatable({ inner_sock = inner_sock, class = "tcp{client}" }, { __index = m })
   end
 })
 
