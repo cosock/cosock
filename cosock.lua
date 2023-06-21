@@ -12,6 +12,7 @@ local threadswaitingfor = {} -- what each thread is waiting for
 local readythreads = {} -- like wakethreads, but for next loop (can be modified while looping wakethreads)
 local socketwrappermap = setmetatable({}, weaktable) -- from native socket to async socket
 local threaderrorhandler = nil -- TODO: allow setting error handler
+local last_wakes = setmetatable({}, weakkeys)
 
 -- save print for when we actually need to print
 local alwaysprint = print
@@ -36,6 +37,7 @@ local function dump_thread_state(wokenthreads)
     alwaysprint("recvt:", #((threadswaitingfor[thread] or {}).recvr or {}))
     alwaysprint("sendt:", #((threadswaitingfor[thread] or {}).sendr or {}))
     alwaysprint("timeout:", (threadswaitingfor[thread] or {}).timeout)
+    alwaysprint("last wake:", last_wakes[thread] or "unknown")
     alwaysprint("---------------------------------------------------------")
   end
   alwaysprint("threads not woken in last turn ("..tostring(tablecount(threads) - tablecount(wokenthreads))..")")
@@ -47,6 +49,7 @@ local function dump_thread_state(wokenthreads)
       alwaysprint("recvt:", #((threadswaitingfor[thread] or {}).recvr or {}))
       alwaysprint("sendt:", #((threadswaitingfor[thread] or {}).sendr or {}))
       alwaysprint("timeout:", (threadswaitingfor[thread] or {}).timeout)
+      alwaysprint("last wake:", last_wakes[thread] or "unknown")
       alwaysprint("---------------------------------------------------------")
     end
   end
@@ -197,6 +200,7 @@ function m.spawn(fn, name)
   print("socket spawn", name or thread)
   threadnames[thread] = name
   threads[thread] = thread
+  last_wakes[thread] = 0
   readythreads[thread] = {}
 end
 
@@ -204,6 +208,7 @@ local function wake_thread(wakelist, thread, kind, skt)
   print("wake thread", thread, kind, skt)
   wakelist[thread] = wakelist[thread] or {}
   wakelist[thread][kind] = wakelist[thread][kind] or {}
+  last_wakes[thread] = os.time()
   table.insert(wakelist[thread][kind], skt)
 end
 
@@ -211,6 +216,7 @@ local function wake_thread_err(wakelist, thread, err)
   print("wake thread err", thread, err)
   wakelist[thread] = wakelist[thread] or {}
   wakelist[thread].err = err
+  last_wakes[thread] = os.time()
 end
 
 -- Implementaion Notes:
