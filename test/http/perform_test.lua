@@ -7,7 +7,7 @@ local function slow_request(id, scheme, request, requests_started, requests_fini
     table.insert(requests_started, tostring(id))
 
     local starttime = socket.gettime()
-    local body, status = request(string.format("%s://httpbin.org/delay/3", scheme))
+    local body, status = request(string.format("%s://localhost/delay/3", scheme))
     local endtime = socket.gettime()
 
     print(string.format("request took %s seconds", endtime - starttime))

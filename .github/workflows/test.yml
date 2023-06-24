@@ -31,7 +31,7 @@ jobs:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
       - name: start litebin
-        run: docker run -d -p 3742:3742 ghcr.io/azdle/litebin:dev
+        run: docker run -d -p 80:3742 ghcr.io/azdle/litebin:dev
       - name: check litebin
         run: curl http://localhost:3742/delay/1
       - name: install luacheck
