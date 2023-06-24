@@ -30,12 +30,18 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+      - name: start litebin
+        run: docker run -d -p 3742:3742 ghcr.io/azdle/litebin:dev
+      - name: check litebin
+        run: curl http://localhost:3742/delay/1
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
         run: luarocks install luasocket
       - name: install luasec
         run: luarocks install luasec
+      - name: check litebin
+        run: curl http://localhost:3742/delay/1
       - name: try-protect
         run: timeout 5 lua test/error-handling/try-protect.lua
       - name: spawn-child-and-die
