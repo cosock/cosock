@@ -33,7 +33,7 @@ jobs:
       - name: start litebin
         run: docker run -d -p 80:3742 ghcr.io/azdle/litebin:dev
       - name: check litebin
-        run: curl http://localhost:3742/delay/1
+        run: curl http://localhost/delay/1
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
@@ -41,7 +41,7 @@ jobs:
       - name: install luasec
         run: luarocks install luasec
       - name: check litebin
-        run: curl http://localhost:3742/delay/1
+        run: curl http://localhost/delay/1
       - name: try-protect
         run: timeout 5 lua test/error-handling/try-protect.lua
       - name: spawn-child-and-die
