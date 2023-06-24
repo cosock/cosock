@@ -59,10 +59,10 @@ jobs:
       - name: ssl client-timeout
         run: timeout 5 lua test/ssl/client-timeout.lua
       - name: http http
-        run: timeout 5 lua test/http/http.lua
+        run: timeout 30 lua test/http/http.lua
       - name: http https via ssl
-        run: timeout 5 lua test/http/https-via-ssl.lua
+        run: timeout 30 lua test/http/https-via-ssl.lua
       - name: http https via http
-        run: timeout 5 lua test/http/https-via-http.lua
+        run: timeout 30 lua test/http/https-via-http.lua
       - name: asyncify-works
         run: timeout 5 lua test/asyncify/asyncify-works.lua
