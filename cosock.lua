@@ -213,7 +213,6 @@ function m.spawn(fn, name)
   print("socket spawn", name or thread)
   threadnames[thread] = name
   threads[thread] = thread
-  last_wakes[thread] = os.time()
   readythreads[thread] = {}
 end
 
@@ -221,7 +220,6 @@ local function wake_thread(wakelist, thread, kind, skt)
   print("wake thread", thread, kind, skt)
   wakelist[thread] = wakelist[thread] or {}
   wakelist[thread][kind] = wakelist[thread][kind] or {}
-  last_wakes[thread] = os.time()
   table.insert(wakelist[thread][kind], skt)
 end
 
@@ -229,7 +227,6 @@ local function wake_thread_err(wakelist, thread, err)
   print("wake thread err", thread, err)
   wakelist[thread] = wakelist[thread] or {}
   wakelist[thread].err = err
-  last_wakes[thread] = os.time()
 end
 
 -- Implementaion Notes:
@@ -276,7 +273,7 @@ function m.run()
             end
           end
         end
-
+        last_wakes[thread] = os.time()
         -- resume thread
         local status, threadrecvt_or_err, threadsendt, threadtimeout =
           coroutine.resume(thread, params.recvr, params.sendr, params.err)
