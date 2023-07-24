@@ -66,3 +66,7 @@ jobs:
         run: timeout 5 lua test/http/https-via-http.lua
       - name: asyncify-works
         run: timeout 5 lua test/asyncify/asyncify-works.lua
+      - name: thread-metadata sleeping
+        run: timeout 5 lua test/thread-metadata/sleeping.lua
+      - name: thread-metadata sockets
+        run: timeout 5 lua test/thread-metadata/sockets.lua

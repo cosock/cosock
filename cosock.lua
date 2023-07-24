@@ -12,15 +12,29 @@ local threadswaitingfor = {} -- what each thread is waiting for
 local readythreads = {} -- like wakethreads, but for next loop (can be modified while looping wakethreads)
 local socketwrappermap = setmetatable({}, weaktable) -- from native socket to async socket
 local threaderrorhandler = nil -- TODO: allow setting error handler
+local last_wakes = setmetatable({}, weakkeys)
 
 -- save print for when we actually need to print
 local alwaysprint = print
 
 -- count elements in non-array table
 local function tablecount(t)
-  local count = 0
-  for _,_ in pairs(t) do count = count + 1 end
-  return count
+    local count = 0
+    for _, _ in pairs(t) do count = count + 1 end
+    return count
+end
+
+local function generate_thread_metadata(thread)
+  local tb = debug and debug.traceback or function() alwaysprint("debug.traceback not avaliable") end
+  return {
+    name = threadnames[thread],
+    traceback = tb(thread),
+    recvt = #((threadswaitingfor[thread] or {}).recvr or {}),
+    sendt = #((threadswaitingfor[thread] or {}).sendr or {}),
+    timeout = (threadswaitingfor[thread] or {}).timeout,
+    last_wake = last_wakes[thread] or "unknown",
+    status = coroutine.status(thread),
+  }
 end
 
 -- dump debugging info to stdout
@@ -36,6 +50,7 @@ local function dump_thread_state(wokenthreads)
     alwaysprint("recvt:", #((threadswaitingfor[thread] or {}).recvr or {}))
     alwaysprint("sendt:", #((threadswaitingfor[thread] or {}).sendr or {}))
     alwaysprint("timeout:", (threadswaitingfor[thread] or {}).timeout)
+    alwaysprint("last wake:", last_wakes[thread] or "unknown")
     alwaysprint("---------------------------------------------------------")
   end
   alwaysprint("threads not woken in last turn ("..tostring(tablecount(threads) - tablecount(wokenthreads))..")")
@@ -47,6 +62,7 @@ local function dump_thread_state(wokenthreads)
       alwaysprint("recvt:", #((threadswaitingfor[thread] or {}).recvr or {}))
       alwaysprint("sendt:", #((threadswaitingfor[thread] or {}).sendr or {}))
       alwaysprint("timeout:", (threadswaitingfor[thread] or {}).timeout)
+      alwaysprint("last wake:", last_wakes[thread] or "unknown")
       alwaysprint("---------------------------------------------------------")
     end
   end
@@ -257,7 +273,7 @@ function m.run()
             end
           end
         end
-
+        last_wakes[thread] = os.time()
         -- resume thread
         local status, threadrecvt_or_err, threadsendt, threadtimeout =
           coroutine.resume(thread, params.recvr, params.sendr, params.err)
@@ -387,6 +403,15 @@ function m.reset()
   readythreads = {}
   socketwrappermap = setmetatable({}, weaktable)
   threaderrorhandler = nil
+end
+
+-- handle to get the metadata for all cosock owned threads
+function m.get_thread_metadata()
+  local ret = {}
+  for th, _ in pairs(threads) do
+    table.insert(ret, generate_thread_metadata(th))
+  end
+  return ret
 end
 
 return m
