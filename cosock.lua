@@ -254,25 +254,26 @@ function m.run()
       -- table, callbacks hold a reference to this specific instance)
       -- also this operation is actually valid, values can be modified or removed, just not added
       readythreads[thread] = nil
+
+      -- cancel thread timeout (if any)
+      timers.cancel(thread)
+
+      -- cancel other timers before any threads are resumed
+      for kind, sockets in pairs(threadswaitingfor[thread] or {}) do
+        if kind ~= "timeout" then
+          for _, skt in pairs(sockets) do
+            assert(skt.setwaker, "non-wakeable socket")
+            print("unset waker", threadnames[thread] or thread, kind)
+            skt:setwaker(kind, nil)
+          end
+        end
+      end
     end
 
     -- run all threads
     for thread, params in pairs(wakethreads) do
       print("waking", threadnames[thread] or thread, params.recvr, params.sendr, params.err)
       if coroutine.status(thread) == "suspended" then
-        -- cancel thread timeout (if any)
-        timers.cancel(thread)
-
-        -- cancel other timers
-        for kind, sockets in pairs(threadswaitingfor[thread] or {}) do
-          if kind ~= "timeout" then
-            for _, skt in pairs(sockets) do
-              assert(skt.setwaker, "non-wakeable socket")
-              print("unset waker", kind)
-              skt:setwaker(kind, nil)
-            end
-          end
-        end
         last_wakes[thread] = os.time()
         -- resume thread
         local status, threadrecvt_or_err, threadsendt, threadtimeout =
