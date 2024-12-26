@@ -24,13 +24,24 @@ end})
 
 local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
 
-m.accept = passthrough("accept", {
-  output = function(inner_sock)
+m.accept = passthrough("accept", function()
+  local function ctor(inner_sock)
     assert(inner_sock, "transform called on error from accept")
     inner_sock:settimeout(0)
     return setmetatable({inner_sock = inner_sock, class = "tcp{client}"}, { __index = m})
   end
-})
+  return {
+    output = function(inner_sock)
+      return ctor(inner_sock)
+    end,
+    error = function(inner_sock, err, ...)
+      if err == "already connected" then
+        return ctor(inner_sock)
+      end
+      return nil, err, ...
+    end,
+  }
+end)
 
 m.bind = passthrough("bind")
 
