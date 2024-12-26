@@ -36,6 +36,22 @@ jobs:
         run: luarocks install luasocket
       - name: install luasec
         run: luarocks install luasec
+      - name: generate self signed cert
+        run: |
+          openssl req \
+            -newkey rsa:2048 \
+            -x509 \
+            -sha256 \
+            -days 10000 \
+            -nodes \
+            -out cert.pem \
+            -keyout key.pem \
+            -subj "/C=US/ST=MN/L=Minneapolis/O=cosock/CN=cosock/"
+      - name: download server for http tests
+        run: |
+          export COSOCK_TEST_SERVER_INSTALL_DIR="${GITHUB_WORKSPACE}"
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cosock/test-http-server/releases/download/v0.1.6/cosock-test-server-installer.sh | sh
+          
       - name: try-protect
         run: timeout 5 lua test/error-handling/try-protect.lua
       - name: spawn-child-and-die
@@ -59,11 +75,26 @@ jobs:
       - name: ssl client-timeout
         run: timeout 5 lua test/ssl/client-timeout.lua
       - name: http http
-        run: timeout 5 lua test/http/http.lua
+        run: |
+          $GITHUB_WORKSPACE/bin/cosock-test-server 8080 &
+          SERVER_PID=$!
+          # ensure the port is bound before the test starts
+          sleep 1
+          timeout 5 lua test/http/http.lua 8080
       - name: http https via ssl
-        run: timeout 5 lua test/http/https-via-ssl.lua
+        run: |
+          $GITHUB_WORKSPACE/bin/cosock-test-server 9443 . &
+          SERVER_PID=$!
+          # ensure the port is bound before the test starts
+          sleep 1
+          timeout 5 lua test/http/https-via-ssl.lua 9443
       - name: http https via http
-        run: timeout 5 lua test/http/https-via-http.lua
+        run: |
+          $GITHUB_WORKSPACE/bin/cosock-test-server 8443 . &
+          SERVER_PID=$!
+          # ensure the port is bound before the test starts
+          sleep 1
+          timeout 5 lua test/http/https-via-http.lua 8443
       - name: asyncify-works
         run: timeout 5 lua test/asyncify/asyncify-works.lua
       - name: thread-metadata sleeping
