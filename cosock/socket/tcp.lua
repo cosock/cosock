@@ -40,7 +40,14 @@ end
 
 m.close = passthrough("close")
 
-m.connect = passthrough("connect")
+m.connect = passthrough("connect", {
+  error = function(self, err)
+    if err == "already connected" then
+      return self
+    end
+    return nil, err
+  end
+})
 
 m.dirty = passthrough("dirty")
 
@@ -92,22 +99,22 @@ m.receive = passthrough("receive", function()
         return pattern
       end
     end,
-    -- transform output after final success or (non-block) error
-    output = function(recv, err, partial)
-      assert(not (recv and partial), "socket recieve returned both data and partial data")
-
+    error = function(_sock, err, partial)
+      new_part(partial)
+      if pattern == "*a" and err == "closed" then
+        new_part(partial)
+        return table.concat(parts)
+      end
+      return nil, err, table.concat(parts)
+    end,
+    -- transform output after final success
+    output = function(recv)
+      assert(not recv, "socket receive returned nil data")
       if #parts == 0 then
-        return recv, err, partial
+        return recv
       end
-
-      new_part(recv or partial)
-      local data = table.concat(parts)
-
-      if err then
-        return nil, err, data
-      else
-        return data
-      end
+      new_part(recv)
+      return table.concat(parts)
     end,
   }
 end)

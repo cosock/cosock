@@ -16,6 +16,20 @@ local function maybe_transform_output(ret, transform)
   return unpack(ret, 1, ret.n)
 end
 
+--- On error to any method in the passthrough builder, if the transform object includes an error
+--- transformation this will call that function
+---@param sock table the inner socket
+---@param ret table The result table where 1: success, 2: error, ...: any additional values
+---@param transform table The transform table
+local function maybe_transform_error(sock, ret, transform)
+  if transform.error then
+    -- We are assuming that the `ret` argument includes the "success" value in the first position
+    -- just like it is returned from `pack(isock[method](...))`
+    return transform.error(sock, unpack(ret, 2, ret.n))
+  end
+  return unpack(ret, 1, ret.n)
+end
+
 function m.passthroughbuilder(recvmethods, sendmethods)
   return function(method, transformsrc)
     return function(self, ...)
@@ -26,6 +40,7 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         assert(not transform.input or type(transform.input) == "function", "input transformer not a function")
         assert(not transform.blocked or type(transform.blocked) == "function", "blocked transformer not a function")
         assert(not transform.output or type(transform.output) == "function", "output transformer not a function")
+        assert(not transform.error or type(transform.error) == "function", "error transformer not a function")
       else
         transform = {}
       end
@@ -41,41 +56,40 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         local ret = pack(isock[method](isock, unpack(inputparams, 1, inputparams.n)))
         local status = ret[1]
         local err = ret[2]
-
-        if not status and err and ((recvmethods[method] or {})[err] or (sendmethods[method] or {})[err]) then
-          if transform.blocked then
-            inputparams = pack(transform.blocked(unpack(ret, 1, ret.n)))
-          end
-          local kind = ((recvmethods[method] or {})[err]) and "recvr" or ((sendmethods[method] or {})[err]) and "sendr"
-
-          assert(kind, "about to yield on method that is niether recv nor send")
-          local recvr, sendr, rterr = coroutine.yield(kind == "recvr" and {self} or {},
-                                                      kind == "sendr" and {self} or {},
-                                                      self.timeout)
-
-          -- woken, unset waker
-          self.wakers[kind] = nil
-
-          if rterr then
-            if rterr == err then
-              return maybe_transform_output(ret, transform)
-            else
-              return maybe_transform_output(pack(nil, rterr), transform)
-            end
-          end
-
-          if kind == "recvr" then
-            assert(recvr and #recvr == 1, "thread resumed without awaited socket or error (or too many sockets)")
-            assert(sendr == nil or #sendr == 0, "thread resumed with unexpected socket")
-          else
-            assert(recvr == nil or #recvr == 0, "thread resumed with unexpected socket")
-            assert(sendr and #sendr == 1, "thread resumed without awaited socket or error (or too many sockets)")
-          end
-        elseif status then
+        if status then
           self.class = self.inner_sock.class
           return maybe_transform_output(ret, transform)
-        else
+        end
+        if not err then
           return maybe_transform_output(ret, transform)
+        end
+        local kind = ((recvmethods[method] or {})[err]) and "recvr" or ((sendmethods[method] or {})[err]) and "sendr"
+        if not kind then
+          return maybe_transform_error(self, ret, transform)
+        end
+        if transform.blocked then
+          inputparams = pack(transform.blocked(unpack(ret, 1, ret.n)))
+        end
+        local recvr, sendr, rterr = coroutine.yield(kind == "recvr" and {self} or {},
+                                                    kind == "sendr" and {self} or {},
+                                                    self.timeout)
+        -- woken, unset waker
+        self.wakers[kind] = nil
+        if rterr then
+          if rterr == err then
+            return maybe_transform_error(self, ret, transform)
+          else
+            ret[2] = rterr
+            return maybe_transform_error(self, ret, transform)
+          end
+        end
+
+        if kind == "recvr" then
+          assert(recvr and #recvr == 1, "thread resumed without awaited socket or error (or too many sockets)")
+          assert(sendr == nil or #sendr == 0, "thread resumed with unexpected socket")
+        else
+          assert(recvr == nil or #recvr == 0, "thread resumed with unexpected socket")
+          assert(sendr and #sendr == 1, "thread resumed without awaited socket or error (or too many sockets)")
         end
       until nil
     end
