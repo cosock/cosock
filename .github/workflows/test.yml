@@ -50,8 +50,7 @@ jobs:
       - name: download server for http tests
         run: |
           export COSOCK_TEST_SERVER_INSTALL_DIR="${GITHUB_WORKSPACE}"
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cosock/test-http-server/releases/download/v0.1.6/cosock-test-server-installer.sh | sh
-          
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cosock/test-http-server/releases/download/v0.1.7/cosock-test-server-installer.sh | sh
       - name: try-protect
         run: timeout 5 lua test/error-handling/try-protect.lua
       - name: spawn-child-and-die
