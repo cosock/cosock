@@ -73,6 +73,8 @@ jobs:
         run: timeout 5 lua test/ssl/client-multi.lua
       - name: ssl client-timeout
         run: timeout 5 lua test/ssl/client-timeout.lua
+      - name: ssl client-server-large-payload
+        run: timeout 5 lua test/ssl/client-server-large-payload.lua
       - name: http http
         run: |
           $GITHUB_WORKSPACE/bin/cosock-test-server 8080 &
