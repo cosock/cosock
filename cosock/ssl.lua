@@ -1,5 +1,6 @@
 local luasec = require "ssl"
 local internals = require "cosock.socket.internals"
+local wrapped = require "cosock.socket.tcp"
 
 local m = {}
 
@@ -47,17 +48,12 @@ m.loadcertificate = passthrough("loadcertificate")
 
 m.newcontext = passthrough("newcontext")
 
-m.receive = passthrough("receive", {
-  output = function(bytes)
-    return bytes
-  end,
-  error = function(_sock, err, ...)
-    if err == "timeout" then
-      err = "wantread"
-    end
-    return nil, err, ...
-  end,
-})
+m.receive = passthrough("receive", wrapped.__build_tcp_receive_transform(function(err)
+  if err == "timeout" then
+    return "wantread"
+  end
+  return err
+end))
 
 m.send = passthrough("send", {
   error = function(_sock, err, ...)
