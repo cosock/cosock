@@ -257,6 +257,58 @@ local function drain_ready_threads()
   return wakethreads
 end
 
+local function step_thread(thread, params)
+  print("waking", threadnames[thread] or thread, params.recvr, params.sendr, params.err)
+  if coroutine.status(thread) == "suspended" then
+    last_wakes[thread] = os.time()
+    -- resume thread
+    local status, threadrecvt_or_err, threadsendt, threadtimeout =
+      coroutine.resume(thread, params.recvr, params.sendr, params.err)
+
+    if status and coroutine.status(thread) == "suspended" then
+      local threadrecvt = threadrecvt_or_err
+      print("suspending", threadnames[thread] or thread, threadrecvt, threadsendt, threadtimeout)
+      -- note which sockets this thread is now waiting on
+      threadswaitingfor[thread] = {recvr = threadrecvt, sendr = threadsendt, timeout = threadtimeout}
+
+      -- setup wakers for all sockets
+      for kind, sockets in pairs(threadswaitingfor[thread]) do
+        if kind ~= "timeout" then
+          for _, skt in pairs(sockets) do
+            assert(skt.setwaker, "non-wakeable socket")
+            print("set waker", kind)
+            skt:setwaker(kind, function()
+              -- unset waker so we can't double wake
+              skt:setwaker(kind, nil)
+              wake_thread(readythreads, thread, kind, skt)
+            end)
+          end
+        end
+      end
+
+      -- setup waker for timeout
+      if threadtimeout then
+        timers.set(threadtimeout, function() wake_thread_err(readythreads, thread, "timeout") end, thread)
+      end
+    elseif coroutine.status(thread) == "dead" then
+      if not status and not threaderrorhandler then
+        local err = threadrecvt_or_err
+        if debug and debug.traceback then
+          error(debug.traceback(thread, err))
+        else
+          error(err)
+        end
+        os.exit(-1)
+      end
+      print("dead", threadnames[thread] or thread, status, threadrecvt_or_err)
+      threads[thread] = nil
+      threadswaitingfor[thread] = nil
+    end
+  else
+    print("non-suspended thread encountered", coroutine.status(thread))
+  end
+end
+
 -- Implementaion Notes:
 -- This run loop is where all the magic happens
 --
@@ -277,55 +329,7 @@ function m.run()
 
     -- run all threads
     for thread, params in pairs(wakethreads) do
-      print("waking", threadnames[thread] or thread, params.recvr, params.sendr, params.err)
-      if coroutine.status(thread) == "suspended" then
-        last_wakes[thread] = os.time()
-        -- resume thread
-        local status, threadrecvt_or_err, threadsendt, threadtimeout =
-          coroutine.resume(thread, params.recvr, params.sendr, params.err)
-
-        if status and coroutine.status(thread) == "suspended" then
-          local threadrecvt = threadrecvt_or_err
-          print("suspending", threadnames[thread] or thread, threadrecvt, threadsendt, threadtimeout)
-          -- note which sockets this thread is now waiting on
-          threadswaitingfor[thread] = {recvr = threadrecvt, sendr = threadsendt, timeout = threadtimeout}
-
-          -- setup wakers for all sockets
-          for kind, sockets in pairs(threadswaitingfor[thread]) do
-            if kind ~= "timeout" then
-              for _, skt in pairs(sockets) do
-                assert(skt.setwaker, "non-wakeable socket")
-                print("set waker", kind)
-                skt:setwaker(kind, function()
-                  -- unset waker so we can't double wake
-                  skt:setwaker(kind, nil)
-                  wake_thread(readythreads, thread, kind, skt)
-                end)
-              end
-            end
-          end
-
-          -- setup waker for timeout
-          if threadtimeout then
-            timers.set(threadtimeout, function() wake_thread_err(readythreads, thread, "timeout") end, thread)
-          end
-        elseif coroutine.status(thread) == "dead" then
-          if not status and not threaderrorhandler then
-            local err = threadrecvt_or_err
-            if debug and debug.traceback then
-              error(debug.traceback(thread, err))
-            else
-              error(err)
-            end
-            os.exit(-1)
-          end
-          print("dead", threadnames[thread] or thread, status, threadrecvt_or_err)
-          threads[thread] = nil
-          threadswaitingfor[thread] = nil
-        end
-      else
-        print("non-suspended thread encountered", coroutine.status(thread))
-      end
+      step_thread(thread, params)
     end
 
     -- check if all threads have completed so that the runtime should exit
