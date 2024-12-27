@@ -229,6 +229,34 @@ local function wake_thread_err(wakelist, thread, err)
   wakelist[thread].err = err
 end
 
+local function drain_ready_threads()
+  local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
+  -- add threads that have become ready since last loop to threads to be woken
+  for thread, reasons in pairs(readythreads) do
+    wakethreads[thread] = reasons
+
+    -- drain copied table (note: the `readythreads` table must not be replaced with a new
+    -- table, callbacks hold a reference to this specific instance)
+    -- also this operation is actually valid, values can be modified or removed, just not added
+    readythreads[thread] = nil
+
+    -- cancel thread timeout (if any)
+    timers.cancel(thread)
+
+    -- cancel other timers before any threads are resumed
+    for kind, sockets in pairs(threadswaitingfor[thread] or {}) do
+      if kind ~= "timeout" then
+        for _, skt in pairs(sockets) do
+          assert(skt.setwaker, "non-wakeable socket")
+          print("unset waker", threadnames[thread] or thread, kind)
+          skt:setwaker(kind, nil)
+        end
+      end
+    end
+  end
+  return wakethreads
+end
+
 -- Implementaion Notes:
 -- This run loop is where all the magic happens
 --
@@ -243,32 +271,9 @@ function m.run()
   local runstarttime = nativesocket.gettime()
   while true do
     print(string.format("================= %s ======================", nativesocket.gettime() - runstarttime))
-    local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
+    -- map of thread => named resume params (rdy skts, timeout, etc)
+    local wakethreads = drain_ready_threads()
     local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
-
-    -- add threads that have become ready since last loop to threads to be woken
-    for thread, reasons in pairs(readythreads) do
-      wakethreads[thread] = reasons
-
-      -- drain copied table (note: the `readythreads` table must not be replaced with a new
-      -- table, callbacks hold a reference to this specific instance)
-      -- also this operation is actually valid, values can be modified or removed, just not added
-      readythreads[thread] = nil
-
-      -- cancel thread timeout (if any)
-      timers.cancel(thread)
-
-      -- cancel other timers before any threads are resumed
-      for kind, sockets in pairs(threadswaitingfor[thread] or {}) do
-        if kind ~= "timeout" then
-          for _, skt in pairs(sockets) do
-            assert(skt.setwaker, "non-wakeable socket")
-            print("unset waker", threadnames[thread] or thread, kind)
-            skt:setwaker(kind, nil)
-          end
-        end
-      end
-    end
 
     -- run all threads
     for thread, params in pairs(wakethreads) do
