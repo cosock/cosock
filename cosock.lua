@@ -104,6 +104,8 @@ local function wake_thread_err(wakelist, thread, err)
   wakelist[thread].err = err
 end
 
+--- Drain the current state of `readythreads` into a list table to resume those threads
+--- @return table[] The list of currently ready threads
 local function drain_ready_threads()
   local wakethreads = {} -- map of thread => named resume params (rdy skts, timeout, etc)
   -- add threads that have become ready since last loop to threads to be woken
@@ -132,6 +134,10 @@ local function drain_ready_threads()
   return wakethreads
 end
 
+--- Step a single managed thread, calling `coroutine.resume` and then doing the bookkeeping needed
+--- for any yields that might have happened
+---@param thread table The managed thread handle table
+---@param params table The parameters that should be passed to `coroutine.resume`
 local function step_thread(thread, params)
   print("waking", threadnames[thread] or thread, params.recvr, params.sendr, params.err)
   if coroutine.status(thread) == "suspended" then
@@ -184,6 +190,9 @@ local function step_thread(thread, params)
   end
 end
 
+--- Determine if the run loop should continue or if all work has been completed
+--- This will check that all managed theads have the status `"dead"` and no values
+--- are currently waiting in the `readythreads` table
 local function should_continue()
   -- check if all threads have completed so that the runtime should exit
   local running = false
@@ -194,7 +203,11 @@ local function should_continue()
   return (next(readythreads) and true) or false
 end
 
-
+--- Calculate the threads that are currently yielding on native sockets or timers
+--- and extract the luasocket tables and/or timer value to pass to `nativesocket.select`
+---@return table[] The sockets to poll for reading
+---@return table[] The sockets to poll for writing
+---@return number The smallest timeout of all timers
 local function build_select_arguments()
   local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
   for thread, params in pairs(threadswaitingfor) do
@@ -229,6 +242,9 @@ local function build_select_arguments()
   return sendt, recvt, timeout
 end
 
+--- Call the waker on any threads currently yielding on a ready socket or timer set
+---@param recvr table[] List of read ready luasocket tables returned from `select`
+---@param sendr table[] List of write ready luasocket tables returned from `select`
 local function wake_ready_threads(recvr, sendr)
   -- call waker on recieve-ready sockets
   for _,lskt in ipairs(recvr or {}) do
