@@ -17,6 +17,7 @@ local running = #chunks
 local killer, killed = cosock.channel.new()
 
 cosock.spawn(function()
+  local accepted = 0
   while true do
     local recvr, _, err = socket.select({sock, killed}, {})
 
@@ -35,23 +36,35 @@ cosock.spawn(function()
     }
     -- accept a new client
     local client = assert(sock:accept())
+    accepted = accepted + 1
     print("server ssl wrap accepted socket")
     client = assert(ssl.wrap(client, config))
     assert(client:dohandshake())
     -- spawn handler for new client
     cosock.spawn(function()
-      -- receive a request for a certian number of bytes
+      local sock_num = accepted
+      local chunk_size = math.floor(size / sock_num)
+      local sent = 0
       local size = tonumber(assert(client:receive()))
-      print('recieved request for:', size)
+      print(sock_num, 'received request for:', size)
+      while sent < size do
+        local send_size = chunk_size
+        if sent + chunk_size > size then
+          send_size = size - sent
+        end
+        local ct = assert(client:send(string.rep('*', send_size)))
+        -- print('sent', ct)
+        sent = sent + ct
+        -- yield
+        cosock.socket.sleep(1)
+      end
 
       -- echo bytes back to client
-      local ct = assert(client:send(string.rep('*', size, '')))
-      print('sent', ct)
-      assert(ct == size, "send incomplete")
+      assert(sent == size, "send incomplete")
 
       -- clean up socket
       client:close()
-    end)
+    end, string.format("accepted-%s", accepted))
   end
   sock:close()
 end, 'blob server')
