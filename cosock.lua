@@ -309,6 +309,16 @@ local function step_thread(thread, params)
   end
 end
 
+local function should_continue()
+  -- check if all threads have completed so that the runtime should exit
+  local running = false
+  for _, thread in pairs(threads) do
+    print("thread", threadnames[thread] or thread, coroutine.status(thread))
+    if coroutine.status(thread) ~= "dead" then return true end
+  end
+  return (next(readythreads) and true) or false
+end
+
 -- Implementaion Notes:
 -- This run loop is where all the magic happens
 --
@@ -332,13 +342,9 @@ function m.run()
       step_thread(thread, params)
     end
 
-    -- check if all threads have completed so that the runtime should exit
-    local running = false
-    for _, thread in pairs(threads) do
-      print("thread", threadnames[thread] or thread, coroutine.status(thread))
-      if coroutine.status(thread) ~= "dead" then running = true end
+    if not should_continue() then
+      break
     end
-    if not running and not next(readythreads) then break end
 
     -- pull out threads' recieve-test & send-test sockets into each cumulative list
     for thread, params in pairs(threadswaitingfor) do
