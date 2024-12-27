@@ -319,6 +319,41 @@ local function should_continue()
   return (next(readythreads) and true) or false
 end
 
+
+local function build_select_arguments()
+  local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
+  for thread, params in pairs(threadswaitingfor) do
+    if params.recvr then
+      for _, skt in pairs(params.recvr) do
+        if skt.inner_sock then
+          print("thread for recvt:", threadnames[thread] or thread)
+          table.insert(recvt, skt.inner_sock)
+          socketwrappermap[skt.inner_sock] = skt;
+        end
+      end
+    end
+    if params.sendr then
+      for _, skt in pairs(params.sendr) do
+        if skt.inner_sock then
+          print("thread for sendt:", threadnames[thread] or thread)
+          table.insert(sendt, skt.inner_sock)
+          socketwrappermap[skt.inner_sock] = skt;
+        end
+      end
+    end
+  end
+
+  -- run timeouts (will push to `readythreads`)
+  timeout = timers.run()
+
+  if next(readythreads) then
+    print("thread woken during execution of other threads, no timeout")
+    timeout = 0
+  end
+
+  return sendt, recvt, timeout
+end
+
 -- Implementaion Notes:
 -- This run loop is where all the magic happens
 --
@@ -335,7 +370,7 @@ function m.run()
     print(string.format("================= %s ======================", nativesocket.gettime() - runstarttime))
     -- map of thread => named resume params (rdy skts, timeout, etc)
     local wakethreads = drain_ready_threads()
-    local sendt, recvt, timeout = {}, {} -- cumulative values across all threads
+    
 
     -- run all threads
     for thread, params in pairs(wakethreads) do
@@ -347,34 +382,7 @@ function m.run()
     end
 
     -- pull out threads' recieve-test & send-test sockets into each cumulative list
-    for thread, params in pairs(threadswaitingfor) do
-      if params.recvr then
-        for _, skt in pairs(params.recvr) do
-          if skt.inner_sock then
-            print("thread for recvt:", threadnames[thread] or thread)
-            table.insert(recvt, skt.inner_sock)
-            socketwrappermap[skt.inner_sock] = skt;
-          end
-        end
-      end
-      if params.sendr then
-        for _, skt in pairs(params.sendr) do
-          if skt.inner_sock then
-            print("thread for sendt:", threadnames[thread] or thread)
-            table.insert(sendt, skt.inner_sock)
-            socketwrappermap[skt.inner_sock] = skt;
-          end
-        end
-      end
-    end
-
-    -- run timeouts (will push to `readythreads`)
-    timeout = timers.run()
-
-    if next(readythreads) then
-      print("thread woken during execution of other threads, no timeout")
-      timeout = 0
-    end
+    local sendt, recvt, timeout = build_select_arguments()
 
     if not timeout and #recvt == 0 and #sendt == 0 then
       -- in case of bugs
