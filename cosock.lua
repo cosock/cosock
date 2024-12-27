@@ -354,6 +354,24 @@ local function build_select_arguments()
   return sendt, recvt, timeout
 end
 
+local function wake_ready_threads(recvr, sendr)
+  -- call waker on recieve-ready sockets
+  for _,lskt in ipairs(recvr or {}) do
+    local skt = socketwrappermap[lskt]
+    assert(skt, "unknown socket")
+    assert(skt._wake, "unwakeable socket")
+    skt:_wake("recvr")
+  end
+
+  -- call waker on send-ready sockets
+  for _,lskt in ipairs(sendr or {}) do
+    local skt = socketwrappermap[lskt]
+    assert(skt, "unknown socket")
+    assert(skt._wake, "unwakeable socket")
+    skt:_wake("sendr")
+  end
+end
+
 -- Implementaion Notes:
 -- This run loop is where all the magic happens
 --
@@ -398,22 +416,7 @@ function m.run()
     print("return select", #(recvr or {}), #(sendr or {}))
 
     if err and err ~= "timeout" then error(err) end
-
-    -- call waker on recieve-ready sockets
-    for _,lskt in ipairs(recvr or {}) do
-      local skt = socketwrappermap[lskt]
-      assert(skt, "unknown socket")
-      assert(skt._wake, "unwakeable socket")
-      skt:_wake("recvr")
-    end
-
-    -- call waker on send-ready sockets
-    for _,lskt in ipairs(sendr or {}) do
-      local skt = socketwrappermap[lskt]
-      assert(skt, "unknown socket")
-      assert(skt._wake, "unwakeable socket")
-      skt:_wake("sendr")
-    end
+    wake_ready_threads(recvr, sendr)
   end
 
   print("run exit")
