@@ -9,6 +9,7 @@ local weakkeys = { __mode = "k" } -- mark table as having weak refs to keys
 
 local threads = {} --TODO: use set instead of list
 local threadnames = setmetatable({}, weakkeys)
+local threadhandles = setmetatable({}, weaktable)
 local threadswaitingfor = {} -- what each thread is waiting for
 local readythreads = {} -- like wakethreads, but for next loop (can be modified while looping wakethreads)
 local socketwrappermap = setmetatable({}, weaktable) -- from native socket to async socket
@@ -83,13 +84,7 @@ m.ssl = ssl
 
 m.asyncify = require "cosock.asyncify"
 
-function m.spawn(fn, name)
-  local thread = coroutine.create(fn)
-  print("socket spawn", name or thread)
-  threadnames[thread] = name
-  threads[thread] = thread
-  readythreads[thread] = {}
-end
+
 
 local function wake_thread(wakelist, thread, kind, skt)
   print("wake thread", thread, kind, skt)
@@ -102,6 +97,43 @@ local function wake_thread_err(wakelist, thread, err)
   print("wake thread err", thread, err)
   wakelist[thread] = wakelist[thread] or {}
   wakelist[thread].err = err
+end
+
+function m.spawn(fn, name)
+  local thread = coroutine.create(fn)
+  print("socket spawn", name or thread)
+  threadnames[thread] = name
+  local ret = {
+    name = name
+  }
+  threadhandles[ret] = thread
+  function ret:cancel()
+    local thread = assert(threadhandles[self], "thread handle dropped!")
+    if coroutine.status(thread) == "running" then
+      error("Attempt to cancel a spawned task from itself")
+    end
+    if coroutine.close then
+      coroutine.close(thread)
+      return
+    end
+    threadhandles[self] = nil
+    readythreads[thread] = nil
+    threads[thread] = nil
+    threadnames[thread] = nil
+    threadswaitingfor[thread] = nil
+    timers.cancel(thread)
+    last_wakes[thread] = nil
+  end
+  function ret:is_alive()
+    local thread = threadhandles[self]
+    if not thread then
+      return false
+    end
+    return coroutine.status(thread) ~= "dead"
+  end
+  threads[thread] = thread
+  readythreads[thread] = {}
+  return ret
 end
 
 --- Drain the current state of `readythreads` into a list table to resume those threads
