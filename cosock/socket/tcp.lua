@@ -112,14 +112,18 @@ end
 
 m.close = passthrough("close")
 
-m.connect = passthrough("connect", {
-  error = function(self, err)
-    if err == "already connected" then
-      return self
+m.connect = passthrough("connect", function() 
+  local called = false
+  return {
+    connect = function(inner, ...)
+      if not called then
+        called = true
+        return inner:connect(...)
+      end
+      return 1
     end
-    return nil, err
-  end
-})
+  }
+end)
 
 m.dirty = passthrough("dirty")
 
