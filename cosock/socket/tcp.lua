@@ -22,6 +22,67 @@ setmetatable(m, {__call = function()
   return setmetatable({inner_sock = inner_sock, class = "tcp{master}"}, { __index = m})
 end})
 
+--- Build the receive transformer for the TCP sockets so it can be shared between this
+--- module and the `ssl` module
+---@param error_transformer any
+function m.__build_tcp_receive_transform(error_transformer)
+  return function()
+    error_transformer = error_transformer or function(err) return err end
+    local pattern
+    -- save partial results on timeout
+    local parts = {}
+    local bytes_remaining
+    local function new_part(part)
+      if type(part) == "string" and #part > 0 then
+        table.insert(parts, part)
+        if bytes_remaining then
+          bytes_remaining = bytes_remaining - #part
+        end
+      end
+    end
+    return {
+      -- transform input parameters
+      input = function(ipattern, iprefix)
+        assert(#parts == 0, "input transformer called more than once")
+        -- save these for later
+        pattern = ipattern
+        if type(pattern) == "number" then bytes_remaining = pattern end
+        new_part(iprefix)
+
+        return pattern
+      end,
+      -- receives results of luasocket call when we need to block, provides parameters to pass when next ready
+      blocked = function(_, _, partial)
+        new_part(partial)
+        if bytes_remaining then
+          assert(bytes_remaining > 0, "somehow about to block despite being done")
+          return bytes_remaining
+        else
+          return pattern
+        end
+      end,
+      error = function(_sock, err, partial)
+        err = error_transformer(err)
+        new_part(partial)
+        if pattern == "*a" and err == "closed" then
+          new_part(partial)
+          return table.concat(parts)
+        end
+        return nil, err, table.concat(parts)
+      end,
+      -- transform output after final success
+      output = function(recv)
+        assert(recv, "socket receive returned nil data")
+        if #parts == 0 then
+          return recv
+        end
+        new_part(recv)
+        return table.concat(parts)
+      end,
+    }
+  end
+end
+
 local passthrough = internals.passthroughbuilder(recvmethods, sendmethods)
 
 m.accept = passthrough("accept", {
@@ -58,59 +119,7 @@ m.getstats = passthrough("getstats")
 
 m.listen = passthrough("listen")
 
-m.receive = passthrough("receive", function()
-  local pattern
-  -- save partial resuts on timeout
-  local parts = {}
-  local bytes_remaining
-  local function new_part(part)
-    if type(part) == "string" and #part > 0 then
-      table.insert(parts, part)
-      if bytes_remaining then
-        bytes_remaining = bytes_remaining - #part
-      end
-    end
-  end
-  return {
-    -- transform input parameters
-    input = function(ipattern, iprefix)
-      assert(#parts == 0, "input transformer called more than once")
-      -- save these for later
-      pattern = ipattern
-      if type(pattern) == "number" then bytes_remaining = pattern end
-      new_part(iprefix)
-
-      return pattern
-    end,
-    -- receives results of luasocket call when we need to block, provides parameters to pass when next ready
-    blocked = function(_, _, partial)
-      new_part(partial)
-      if bytes_remaining then
-        assert(bytes_remaining > 0, "somehow about to block despite being done")
-        return bytes_remaining
-      else
-        return pattern
-      end
-    end,
-    -- transform output after final success or (non-block) error
-    output = function(recv, err, partial)
-      assert(not (recv and partial), "socket recieve returned both data and partial data")
-
-      if #parts == 0 then
-        return recv, err, partial
-      end
-
-      new_part(recv or partial)
-      local data = table.concat(parts)
-
-      if err then
-        return nil, err, data
-      else
-        return data
-      end
-    end,
-  }
-end)
+m.receive = passthrough("receive", m.__build_tcp_receive_transform())
 
 m.send = passthrough("send")
 
@@ -125,6 +134,7 @@ function m:settimeout(timeout)
 
   return 1.0
 end
+
 
 internals.setuprealsocketwaker(m)
 
