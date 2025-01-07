@@ -97,42 +97,51 @@ local function wake_thread_err(wakelist, thread, err)
   wakelist[thread].err = err
 end
 
+local thread_handle = {}
+thread_handle.__index = thread_handle
+
+function thread_handle:cancel()
+  local thread = threadhandles[self]
+  if not thread then
+    -- already canceled?
+    return
+  end
+  if coroutine.status(thread) == "running" then
+    error("Attempt to cancel a spawned task from itself")
+  end
+  -- lua 5.4 only
+  if type(coroutine.close) == "function" then
+    coroutine.close(thread)
+    return
+  end
+  -- fallback for pre-5.4, remove all references to the thread, it will no longer
+  -- be polled in `cosock.run`
+  threadhandles[self] = nil
+  readythreads[thread] = nil
+  threads[thread] = nil
+  threadnames[thread] = nil
+  threadswaitingfor[thread] = nil
+  timers.cancel(thread)
+  last_wakes[thread] = nil
+end
+
+function thread_handle:is_alive()
+  -- was removed in `self:cancel` _or_ via GC
+  local thread = threadhandles[self]
+  if not thread then
+    return false
+  end
+  return coroutine.status(thread) ~= "dead"
+end
+
 function m.spawn(fn, name)
   local thread = coroutine.create(fn)
   print("socket spawn", name or thread)
   threadnames[thread] = name
-  local handle = {
-    name = name or tostring(thread)
-  }
+  local handle = setmetatable({
+    name = name
+  }, thread_handle)
   threadhandles[handle] = thread
-  function handle:cancel()
-    local thread = assert(threadhandles[handle], "thread handle dropped!")
-    if coroutine.status(thread) == "running" then
-      error("Attempt to cancel a spawned task from itself")
-    end
-    -- lua 5.4 only
-    if type(coroutine.close) == "function" then
-      coroutine.close(thread)
-      return
-    end
-    -- fallback for pre-5.4, remove all references to the thread, it will no longer
-    -- be polled in `cosock.run`
-    threadhandles[handle] = nil
-    readythreads[thread] = nil
-    threads[thread] = nil
-    threadnames[thread] = nil
-    threadswaitingfor[thread] = nil
-    timers.cancel(thread)
-    last_wakes[thread] = nil
-  end
-  function handle:is_alive()
-    -- was removed in `cancel` above _or_ `cosock.run`
-    local thread = threadhandles[handle]
-    if not thread then
-      return false
-    end
-    return coroutine.status(thread) ~= "dead"
-  end
   threads[thread] = thread
   readythreads[thread] = {}
   return handle
