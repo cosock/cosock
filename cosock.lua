@@ -9,6 +9,7 @@ local weakkeys = { __mode = "k" } -- mark table as having weak refs to keys
 
 local threads = {} --TODO: use set instead of list
 local threadnames = setmetatable({}, weakkeys)
+local threadhandles = setmetatable({}, weaktable)
 local threadswaitingfor = {} -- what each thread is waiting for
 local readythreads = {} -- like wakethreads, but for next loop (can be modified while looping wakethreads)
 local socketwrappermap = setmetatable({}, weaktable) -- from native socket to async socket
@@ -83,14 +84,6 @@ m.ssl = ssl
 
 m.asyncify = require "cosock.asyncify"
 
-function m.spawn(fn, name)
-  local thread = coroutine.create(fn)
-  print("socket spawn", name or thread)
-  threadnames[thread] = name
-  threads[thread] = thread
-  readythreads[thread] = {}
-end
-
 local function wake_thread(wakelist, thread, kind, skt)
   print("wake thread", thread, kind, skt)
   wakelist[thread] = wakelist[thread] or {}
@@ -102,6 +95,70 @@ local function wake_thread_err(wakelist, thread, err)
   print("wake thread err", thread, err)
   wakelist[thread] = wakelist[thread] or {}
   wakelist[thread].err = err
+end
+
+local thread_handle = {}
+thread_handle.__index = thread_handle
+thread_handle.__tostring = function(self)
+  if type(self.name) == "string" then
+    return self.name
+  end
+  -- name is populated but not a string
+  if self.name then
+    return tostring(self.name)
+  end
+  local thread = threadhandles[self]
+  if not thread then
+    return "dead-thread"
+  end
+  return tostring(thread)
+end
+
+function thread_handle:cancel()
+  local thread = threadhandles[self]
+  if not thread then
+    -- already canceled?
+    return
+  end
+  if coroutine.status(thread) == "running" then
+    error("Attempt to cancel a spawned task from itself")
+  end
+  -- lua 5.4 only
+  if type(coroutine.close) == "function" then
+    coroutine.close(thread)
+    return
+  end
+  -- fallback for pre-5.4, remove all references to the thread, it will no longer
+  -- be polled in `cosock.run`
+  threadhandles[self] = nil
+  readythreads[thread] = nil
+  threads[thread] = nil
+  threadnames[thread] = nil
+  threadswaitingfor[thread] = nil
+  timers.cancel(thread)
+  last_wakes[thread] = nil
+end
+
+function thread_handle:is_alive()
+  -- was removed in `self:cancel` _or_ via GC
+  local thread = threadhandles[self]
+  if not thread then
+    return false
+  end
+  return coroutine.status(thread) ~= "dead"
+end
+
+function m.spawn(fn, name)
+  local thread = coroutine.create(fn)
+  print("socket spawn", name or thread)
+  threadnames[thread] = name
+  local handle = setmetatable({
+    name = name
+  }, thread_handle)
+  threadhandles[handle] = thread
+  threads[thread] = thread
+  readythreads[thread] = {}
+  return handle
 end
 
 --- Drain the current state of `readythreads` into a list table to resume those threads
@@ -300,11 +357,11 @@ function m.run()
             .."this is a bug, please report it, including the above dump state")
     end
 
-    print("start select", #recvt, #sendt, timeout)
+    alwaysprint("start select", #recvt, #sendt, timeout)
     --for k,v in pairs(recvt) do print("r", k, v) end
     --for k,v in pairs(sendt) do print("s", k, v) end
     local recvr, sendr, err = nativesocket.select(recvt, sendt, timeout)
-    print("return select", #(recvr or {}), #(sendr or {}))
+    alwaysprint("return select", #(recvr or {}), #(sendr or {}))
 
     if err and err ~= "timeout" then error(err) end
     wake_ready_threads(recvr, sendr)
