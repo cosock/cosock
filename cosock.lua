@@ -99,6 +99,20 @@ end
 
 local thread_handle = {}
 thread_handle.__index = thread_handle
+thread_handle.__tostring = function(self)
+  if type(self.name) == "string" then
+    return self.name
+  end
+  -- name is populated but not a string
+  if self.name then
+    return tostring(self.name)
+  end
+  local thread = threadhandles[self]
+  if not thread then
+    return "dead-thread"
+  end
+  return tostring(thread)
+end
 
 function thread_handle:cancel()
   local thread = threadhandles[self]
