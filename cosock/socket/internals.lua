@@ -41,6 +41,7 @@ function m.passthroughbuilder(recvmethods, sendmethods)
         assert(not transform.blocked or type(transform.blocked) == "function", "blocked transformer not a function")
         assert(not transform.output or type(transform.output) == "function", "output transformer not a function")
         assert(not transform.error or type(transform.error) == "function", "error transformer not a function")
+        assert(not transform.method or type(transform.method == "function"), "method transformer not a function")
       else
         transform = {}
       end
@@ -53,7 +54,8 @@ function m.passthroughbuilder(recvmethods, sendmethods)
 
       repeat
         local isock = self.inner_sock
-        local ret = pack(isock[method](isock, unpack(inputparams, 1, inputparams.n)))
+        local f = transform.method or isock[method]
+        local ret = pack(f(isock, unpack(inputparams, 1, inputparams.n)))
         local status = ret[1]
         local err = ret[2]
         if status then
