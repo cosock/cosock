@@ -99,6 +99,20 @@ end
 
 local thread_handle = {}
 thread_handle.__index = thread_handle
+thread_handle.__tostring = function(self)
+  if type(self.name) == "string" then
+    return self.name
+  end
+  -- name is populated but not a string
+  if self.name then
+    return tostring(self.name)
+  end
+  local thread = threadhandles[self]
+  if not thread then
+    return "dead-thread"
+  end
+  return tostring(thread)
+end
 
 function thread_handle:cancel()
   local thread = threadhandles[self]
@@ -343,11 +357,11 @@ function m.run()
             .."this is a bug, please report it, including the above dump state")
     end
 
-    print("start select", #recvt, #sendt, timeout)
+    alwaysprint("start select", #recvt, #sendt, timeout)
     --for k,v in pairs(recvt) do print("r", k, v) end
     --for k,v in pairs(sendt) do print("s", k, v) end
     local recvr, sendr, err = nativesocket.select(recvt, sendt, timeout)
-    print("return select", #(recvr or {}), #(sendr or {}))
+    alwaysprint("return select", #(recvr or {}), #(sendr or {}))
 
     if err and err ~= "timeout" then error(err) end
     wake_ready_threads(recvr, sendr)

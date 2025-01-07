@@ -61,6 +61,8 @@ jobs:
         run: timeout 5 lua test/threads/handles-can-cancel.lua
       - name: handles-cannot-cancel-self
         run: timeout 5 lua test/threads/handles-cannot-cancel-self.lua
+      - name: handle-to-string
+        run: timeout 5 lua test/threads/handle-to-string.lua
       - name: basic channel
         run: timeout 5 lua test/channel/basic.lua
       - name: select channel
