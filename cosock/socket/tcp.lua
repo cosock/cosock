@@ -101,7 +101,18 @@ end
 
 m.close = passthrough("close")
 
-m.connect = passthrough("connect")
+m.connect = passthrough("connect", function() 
+  local called = false
+  return {
+    method = function(inner, ...)
+      if not called then
+        called = true
+        return inner:connect(...)
+      end
+      return 1.0
+    end
+  }
+end)
 
 m.dirty = passthrough("dirty")
 
