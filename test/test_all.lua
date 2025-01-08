@@ -19,6 +19,11 @@ function run_test(path, ...)
   print(stdout)
 end
 
+-- setup test HTTP(S) server
+local p = assert(io.popen("lua scripts/http-test-server.lua &\necho $!"))
+local serverpid = assert(p:read("*l"))
+os.execute("sleep 1") -- wait for test server to start
+
 run_test("test/channel/via-select.lua")
 run_test("test/channel/recv-timesout.lua")
 run_test("test/error-handling/try-protect.lua")
@@ -41,10 +46,13 @@ run_test("test/asyncify/nested/table.lua")
 run_test("test/asyncify/one.lua")
 run_test("test/asyncify/two.lua")
 run_test("test/http/http.lua", 8080)
-run_test("test/http/https-via-http.lua", 8443)
-run_test("test/http/https-via-ssl.lua", 9443)
+run_test("test/http/https-via-http.lua", 8080)
+run_test("test/http/https-via-ssl.lua", 8080)
 run_test("test/thread-metadata/sleeping.lua")
 run_test("test/thread-metadata/sockets.lua")
+
+-- stop test server
+os.execute("kill "..serverpid)
 
 if failures then
   os.exit(1)
