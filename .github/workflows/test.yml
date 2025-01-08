@@ -39,7 +39,7 @@ jobs:
         run: luarocks install luasocket
       - name: install luasec
         run: |
-          export OPENSSL_DIR=/usr/local
+          export OPENSSL_DIR=/usr
           luarocks install luasec
       - name: generate self signed cert
         run: |
