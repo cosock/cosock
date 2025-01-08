@@ -30,19 +30,13 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
-      # - name: Install openssl macos
-      #   if: ${{ runner.os == 'macOS' }}
-      #   run: brew install openssl
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
         run: luarocks install luasocket
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
       - name: install luasec
         run: |
-          find /usr -iname \*ssl\*.so
-          export OPENSSL_DIR=/usr
+          export OPENSSL_DIR=/opt/homebrew/
           luarocks install luasec
       - name: generate self signed cert
         run: |
