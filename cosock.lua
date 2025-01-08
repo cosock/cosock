@@ -296,6 +296,11 @@ local function build_select_arguments()
     timeout = 0
   end
 
+  -- clamp native timeout to 1 year, extremely large values can break `select`
+  if timeout and timeout > 31536000 then
+    timeout = 31536000
+  end
+
   return sendt, recvt, timeout
 end
 
