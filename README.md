@@ -19,6 +19,11 @@ To run all tests run:
 
     luarocks test
 
+The first time you run the tests, you may want to run this to install the test
+dependencies locally:
+
+    luarocks test --prepare --local
+
 Individual tests can be run from the repo root directly:
 
     lua test/asyncify/asyncify-works.lua
