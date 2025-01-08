@@ -37,7 +37,7 @@ jobs:
       - name: install luasec
         run: |
           export OPENSSL_DIR=
-          luarocks install luasec OPENSSL_DIR=/usr/local
+          luarocks install luasec OPENSSL_DIR=/opt/homebrew/opt/openssl@3/
       - name: generate self signed cert
         run: |
           openssl req \
