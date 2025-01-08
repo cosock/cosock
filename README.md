@@ -14,6 +14,11 @@ are heavily depened on in the ecosystem will be considered).
 For now see the tests folder for example usage.
 
 ## Testing
-To run ssl tests, test keys and certificates first need to be generated via openssl. To do so run:
 
-    sh tests/ssl/certs/generate.sh
+To run all tests run:
+
+    luarocks test
+
+Individual tests can be run from the repo root directly:
+
+    lua test/asyncify/asyncify-works.lua
