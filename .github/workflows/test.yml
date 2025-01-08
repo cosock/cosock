@@ -30,9 +30,9 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
-      - name: Install openssl macos
-        if: ${{ runner.os == 'macOS' }}
-        run: brew install openssl
+      # - name: Install openssl macos
+      #   if: ${{ runner.os == 'macOS' }}
+      #   run: brew install openssl
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
