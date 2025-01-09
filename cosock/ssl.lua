@@ -52,6 +52,13 @@ m.receive = passthrough("receive", wrapped.__build_tcp_receive_transform(functio
   if err == "timeout" then
     return "wantread"
   end
+
+  -- workaround to convince `http` to finish processing message when
+  -- connection is closed without closing TLS session
+  if err == "unexpected eof while reading" then
+    err = "closed"
+  end
+
   return err
 end))
 
