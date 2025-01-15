@@ -33,6 +33,11 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+      - name: config homebrew openssl location (macos)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          mkdir $HOME/.luarocks/
+          echo 'external_deps_dirs = {"/opt/homebrew/"}'> $HOME/.luarocks/config-${{ matrix.luaVersion }}.lua
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
