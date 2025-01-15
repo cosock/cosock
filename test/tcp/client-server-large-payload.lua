@@ -41,11 +41,13 @@ cosock.spawn(function()
       client:close()
     end)
   end
+  print("close server socket")
   sock:close()
 end, 'blob server')
 
 for _, chunk in ipairs(chunks) do
   cosock.spawn(function()
+    print("client connect", chunk)
     local client = assert(socket.tcp())
     -- connect to the server
     assert(client:connect(addr, port))
@@ -69,6 +71,7 @@ for _, chunk in ipairs(chunks) do
       --print('recvd', #s, 'so far')
     end
     assert(#s == size)
+    print("client close", chunk)
     client:close()
 
     -- last one alive, lock the door (aka, kill the server)
