@@ -40,5 +40,8 @@ jobs:
       - name: install luasec (macos)
         if: ${{ runner.os == 'macOS' }}
         run: luarocks install luasec OPENSSL_DIR=/opt/homebrew/opt/openssl@3/
+      - name: install cqueues (macos)
+        if: ${{ runner.os == 'macOS' }}
+        run: luarocks install cqueues CRYPTO_DIR=/opt/homebrew/opt/openssl@3/ OPENSSL_DIR=/opt/homebrew/opt/openssl@3/
       - name: run tests
         run: luarocks test cosock-*.rockspec
