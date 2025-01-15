@@ -8,14 +8,14 @@ jobs:
     strategy:
       matrix:
         luaVersion: 
-          # - "5.1"
-          # - "5.2"
-          # - "5.3"
+          - "5.1"
+          - "5.2"
+          - "5.3"
           - "5.4"
           # - "luajit-2.0"
           # - "luajit-2.1"
         os:
-          # - ubuntu-latest
+          - ubuntu-latest
           - macos-latest
         
     runs-on: ${{ matrix.os }}
