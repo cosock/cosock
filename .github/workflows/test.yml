@@ -34,7 +34,7 @@ jobs:
         if: ${{ runner.os == 'macOS' }}
         run: |
           mkdir $HOME/.luarocks/
-          echo 'external_deps_dirs = {"/opt/homebrew/"}'> $HOME/.luarocks/config-5.3.lua
+          echo 'external_deps_dirs = {"/opt/homebrew/"}'> $HOME/.luarocks/config-${{ matrix.luaVersion }}.lua
       - name: install gnu coreutils for `timeout` (macos)
         if: ${{ runner.os == 'macOS' }}
         run: brew install coreutils
