@@ -47,5 +47,7 @@ jobs:
         run: luarocks install luasocket
       - name: install luasec
         run: luarocks install luasec
+      - name: install test deps
+        run: luarocks test --prepare
       - name: run tests
-        run: luarocks test cosock-*.rockspec
+        run: luarocks test
