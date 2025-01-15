@@ -1,3 +1,4 @@
+rockspec_format = "3.0"
 package = "cosock"
 version = "0.2.0-1"
 source = {
@@ -31,4 +32,8 @@ build = {
     ["cosock.socket.udp"] = "cosock/socket/udp.lua",
     ["cosock.ssl"] = "cosock/ssl.lua",
   }
+}
+test = {
+   type = "command",
+   script = "test/test_all.lua",
 }

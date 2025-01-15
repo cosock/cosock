@@ -51,62 +51,14 @@ jobs:
         run: |
           export COSOCK_TEST_SERVER_INSTALL_DIR="${GITHUB_WORKSPACE}"
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cosock/test-http-server/releases/download/v0.1.7/cosock-test-server-installer.sh | sh
-      - name: try-protect
-        run: timeout 5 lua test/error-handling/try-protect.lua
-      - name: spawn-child-and-die
-        run: timeout 5 lua test/threads/spawn-child-and-die.lua
-      - name: handle-aliveness-works
-        run: timeout 5 lua test/threads/handle-aliveness-works.lua
-      - name: handles-can-cancel
-        run: timeout 5 lua test/threads/handles-can-cancel.lua
-      - name: handles-cannot-cancel-self
-        run: timeout 5 lua test/threads/handles-cannot-cancel-self.lua
-      - name: handle-to-string
-        run: timeout 5 lua test/threads/handle-to-string.lua
-      - name: basic channel
-        run: timeout 5 lua test/channel/basic.lua
-      - name: select channel
-        run: timeout 5 lua test/channel/via-select.lua
-      - name: channel timeout
-        run: timeout 5 lua test/channel/recv-timesout.lua
-      - name: tcp client-multi
-        run: timeout 5 lua test/tcp/client-multi.lua
-      - name: tcp client-timeout
-        run: timeout 5 lua test/tcp/client-timeout.lua
-      - name: tcp client-server-large-payload
-        run: timeout 5 lua test/tcp/client-server-large-payload.lua
-      - name: udp client-timeout
-        run: timeout 5 lua test/udp/client-timeout.lua
-      - name: ssl client-multi
-        run: timeout 5 lua test/ssl/client-multi.lua
-      - name: ssl client-timeout
-        run: timeout 5 lua test/ssl/client-timeout.lua
-      - name: ssl client-server-large-payload
-        run: timeout 5 lua test/ssl/client-server-large-payload.lua
-      - name: http http
+      - name: run tests
         run: |
           $GITHUB_WORKSPACE/bin/cosock-test-server 8080 &
-          SERVER_PID=$!
-          # ensure the port is bound before the test starts
-          sleep 1
-          timeout 5 lua test/http/http.lua 8080
-      - name: http https via ssl
-        run: |
+          HTTP_SERVER_PID=$!
           $GITHUB_WORKSPACE/bin/cosock-test-server 9443 . &
-          SERVER_PID=$!
-          # ensure the port is bound before the test starts
-          sleep 1
-          timeout 5 lua test/http/https-via-ssl.lua 9443
-      - name: http https via http
-        run: |
+          HTTPS_SSL_SERVER_PID=$!
           $GITHUB_WORKSPACE/bin/cosock-test-server 8443 . &
-          SERVER_PID=$!
-          # ensure the port is bound before the test starts
+          HTTPS_HTTP_SERVER_PID=$!
+          # ensure the ports are bound before the tests start
           sleep 1
-          timeout 5 lua test/http/https-via-http.lua 8443
-      - name: asyncify-works
-        run: timeout 5 lua test/asyncify/asyncify-works.lua
-      - name: thread-metadata sleeping
-        run: timeout 5 lua test/thread-metadata/sleeping.lua
-      - name: thread-metadata sockets
-        run: timeout 5 lua test/thread-metadata/sockets.lua
+          luarocks test cosock-*.rockspec
