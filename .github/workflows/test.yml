@@ -17,8 +17,11 @@ jobs:
           - "5.4"
           # - "luajit-2.0"
           # - "luajit-2.1"
+        os:
+          - ubuntu-latest
+          - macos-latest
         
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
@@ -30,6 +33,9 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+      - name: Install openssl macos
+        if: ${{ runner.os == 'macOS' }}
+        run: brew install openssl
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
