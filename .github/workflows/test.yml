@@ -38,6 +38,8 @@ jobs:
         run: |
           export OPENSSL_DIR=
           luarocks install luasec OPENSSL_DIR=/opt/homebrew/opt/openssl@3/
+      - name: Setup upterm session
+        uses: lhotari/action-upterm@v1
       - name: generate self signed cert
         run: |
           openssl req \
