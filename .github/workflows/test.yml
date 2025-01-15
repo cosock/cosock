@@ -47,6 +47,7 @@ jobs:
       - name: install luasec
         run: luarocks install luasec
       - name: install test deps
+        if: ${{ runner.os != 'macOS' }} # workaround bug in luarocks
         run: luarocks test --prepare
       - name: run tests
         run: luarocks test
