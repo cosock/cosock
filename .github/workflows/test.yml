@@ -30,20 +30,18 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+      - name: config homebrew openssl location (macos)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          mkdir $HOME/.luarocks/
+          echo 'external_deps_dirs = {"/opt/homebrew/"}'> $HOME/.luarocks/config-5.3.lua
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
         run: luarocks install luasocket
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
+      # - name: Setup upterm session
+      #   uses: lhotari/action-upterm@v1
       - name: install luasec
-        if: ${{ runner.os != 'macOS' }}
         run: luarocks install luasec
-      - name: install luasec (macos)
-        if: ${{ runner.os == 'macOS' }}
-        run: luarocks install luasec OPENSSL_DIR=/opt/homebrew/opt/openssl@3/
-      - name: install cqueues (macos)
-        if: ${{ runner.os == 'macOS' }}
-        run: luarocks install cqueues CRYPTO_DIR=/opt/homebrew/opt/openssl@3/ OPENSSL_DIR=/opt/homebrew/opt/openssl@3/
       - name: run tests
         run: luarocks test cosock-*.rockspec
