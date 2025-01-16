@@ -33,6 +33,8 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+        with:
+          luarocksVersion: "3.11.1"
       - name: config homebrew openssl location (macos)
         if: ${{ runner.os == 'macOS' }}
         run: |
