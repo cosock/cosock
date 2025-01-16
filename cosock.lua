@@ -362,11 +362,11 @@ function m.run()
             .."this is a bug, please report it, including the above dump state")
     end
 
-    print("start select", #recvt, #sendt, timeout)
+    alwaysprint("start select", #recvt, #sendt, timeout)
     --for k,v in pairs(recvt) do print("r", k, v) end
     --for k,v in pairs(sendt) do print("s", k, v) end
     local recvr, sendr, err = nativesocket.select(recvt, sendt, timeout)
-    print("return select", #(recvr or {}), #(sendr or {}))
+    alwaysprint("return select", #(recvr or {}), #(sendr or {}))
 
     if err and err ~= "timeout" then error(err) end
     wake_ready_threads(recvr, sendr)
