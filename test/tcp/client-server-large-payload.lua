@@ -38,6 +38,7 @@ cosock.spawn(function()
       assert(ct == size, "send incomplete")
 
       -- clean up socket
+      print("server close", size)
       client:close()
     end)
   end
