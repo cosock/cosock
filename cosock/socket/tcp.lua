@@ -1,5 +1,8 @@
 local luasocket = require "socket"
 local internals = require "cosock.socket.internals"
+local system = require "cosock.system"
+
+local unpack = table.unpack or unpack
 
 local m = {}
 
@@ -101,7 +104,46 @@ end
 
 m.close = passthrough("close")
 
-m.connect = passthrough("connect")
+local function connect_transform()
+  if system.info().kernel == "Darwin" then
+    -- workaround: macOS returns an "already connected" error once the socket connects
+    return function()
+      local input
+      local connecting = false
+      return {
+        input = function(...)
+          input = {...}
+          return ...
+        end,
+        blocked = function()
+          connecting = true
+          return unpack(input)
+        end,
+        error = function(_sock, error)
+          if connecting and error == "already connected" then
+            connecting = false
+            return 1.0
+          end
+
+          connecting = false
+          input = nil
+          return nil, error
+        end,
+        output = function(...)
+          connecting = false
+          input = nil
+
+          return ...
+        end
+      }
+    end
+  else
+    -- no workarounds needed
+    return nil
+  end
+end
+
+m.connect = passthrough("connect", connect_transform())
 
 m.dirty = passthrough("dirty")
 
