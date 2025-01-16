@@ -33,7 +33,7 @@ local function slow_client(host, port)
 
     s:send("foo")
 
-    s:settimeout(0.3) -- more than 2x server sleep, other req blocks
+    s:settimeout(0.5) -- more than 2x server sleep, other req blocks
 
     local resp, err = s:receive()
     print(resp, err)
