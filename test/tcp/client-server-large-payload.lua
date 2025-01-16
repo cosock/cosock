@@ -20,6 +20,7 @@ cosock.spawn(function()
     local recvr, _, err = socket.select({sock, killed}, {})
 
     if err or recvr[1] == killed then
+      print("server killed")
       break
     end
 
