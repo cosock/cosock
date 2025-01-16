@@ -57,7 +57,7 @@ for _, chunk in ipairs(chunks) do
     assert(client:connect(addr, port))
     -- send a large number of bytes
     local request = tostring(size).."\n"
-    print("client", size, "requesting", request)
+    print("client", chunk, "requesting", request)
     assert(client:send(request), "failed to send in chunk "..chunk)
     local s = ''
     local byte_ct = chunk
