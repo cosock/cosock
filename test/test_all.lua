@@ -11,6 +11,7 @@ function run_test(path, ...)
 
   if success then
     print("OK")
+    print(stdout)
     return
   end
 
