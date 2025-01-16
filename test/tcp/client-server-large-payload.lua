@@ -5,7 +5,7 @@ local size = 65535
 local chunks = { 1, 4096, 8191, 8192, 8193, 16384, 65535 }
 
 local sock = assert(socket.tcp());
-sock:bind('0.0.0.0', 0)
+sock:bind('0.0.0.0', 0, 16)
 sock:setoption('reuseaddr', true)
 sock:listen(1)
 
