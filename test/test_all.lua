@@ -1,6 +1,10 @@
 local failures = false
 
 function run_test(path, ...)
+  if os.getenv("GITHUB_ACTION") then
+    io.write("::group::")
+  end
+
   io.write("running ", path, "...")
   local args = table.concat({...}, " ")
   local cmd = string.format("timeout 5 lua %s %s 2>&1", path, args)
@@ -11,13 +15,17 @@ function run_test(path, ...)
 
   if success then
     print("OK")
-    print(stdout)
-    return
+  else
+    print("ERROR")
   end
 
-  failures = true
-  print("ERROR")
-  print(stdout)
+  if not success or os.getenv("GITHUB_ACTION") then
+    print(stdout)
+  end
+
+  if os.getenv("GITHUB_ACTION") then
+    print("::endgroup::")
+  end
 end
 
 -- setup test HTTP(S) server
