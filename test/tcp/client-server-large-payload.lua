@@ -29,8 +29,10 @@ cosock.spawn(function()
     -- spawn handler for new client
     cosock.spawn(function()
       -- receive a request for a certian number of bytes
-      local size = tonumber(assert(client:receive()))
-      print('recieved request for:', size)
+      local size = assert(client:receive())
+      print("size", size)
+      local size = tonumber(size)
+      print('recieved request for:', size, client)
 
       -- echo bytes back to client
       local ct = assert(client:send(string.rep('*', size, '')))
