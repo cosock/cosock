@@ -49,9 +49,9 @@ cosock.spawn(function()
   sock:close()
 end, 'blob server')
 
-for _, chunk in ipairs(chunks) do
+for i, chunk in ipairs(chunks) do
   cosock.spawn(function()
-    socket.select(nil, nil, 0.1)
+    socket.select(nil, nil, i* 0.1)
     print("client connect", chunk)
     local client = assert(socket.tcp())
     -- connect to the server
