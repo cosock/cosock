@@ -30,6 +30,8 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+        with:
+          luarocksVersion: "3.11.1"
       - name: config homebrew openssl location (macos)
         if: ${{ runner.os == 'macOS' }}
         run: |
@@ -47,7 +49,6 @@ jobs:
       - name: install luasec
         run: luarocks install luasec
       - name: install test deps
-        if: ${{ runner.os != 'macOS' }} # workaround bug in luarocks
         run: luarocks test --prepare
       - name: run tests
         run: luarocks test
