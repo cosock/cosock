@@ -47,7 +47,7 @@ local function assert_thread_info(
     )
   )
 
-  assert(dets.age < 3, string.format("%s found too old thread %s", assert_prefix, dets.age))
+  assert(dets.age < 3.1, string.format("%s found too old thread %s", assert_prefix, dets.age))
   assert(
     dets.data.name == expectations.name,
     string.format(

@@ -37,3 +37,7 @@ test = {
    type = "command",
    script = "test/test_all.lua",
 }
+test_dependencies = {
+  "http",
+  "cqueues",
+}

@@ -14,11 +14,14 @@ jobs:
           - "5.1"
           - "5.2"
           - "5.3"
-          - "5.4"
+          # - "5.4" # disabled: https://github.com/xpol/setup-lua/issues/5
           # - "luajit-2.0"
           # - "luajit-2.1"
+        os:
+          - ubuntu-latest
+          - macos-latest
         
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
@@ -30,35 +33,23 @@ jobs:
         with:
           lua-version: ${{ matrix.luaVersion }}
       - uses: leafo/gh-actions-luarocks@v4
+        with:
+          luarocksVersion: "3.11.1"
+      - name: config homebrew openssl location (macos)
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          mkdir $HOME/.luarocks/
+          echo 'external_deps_dirs = {"/opt/homebrew/"}'> $HOME/.luarocks/config-${{ matrix.luaVersion }}.lua
+      - name: install gnu coreutils for `timeout` (macos)
+        if: ${{ runner.os == 'macOS' }}
+        run: brew install coreutils
       - name: install luacheck
         run: luarocks install luacheck
       - name: install luasocket
         run: luarocks install luasocket
       - name: install luasec
         run: luarocks install luasec
-      - name: generate self signed cert
-        run: |
-          openssl req \
-            -newkey rsa:2048 \
-            -x509 \
-            -sha256 \
-            -days 10000 \
-            -nodes \
-            -out cert.pem \
-            -keyout key.pem \
-            -subj "/C=US/ST=MN/L=Minneapolis/O=cosock/CN=cosock/"
-      - name: download server for http tests
-        run: |
-          export COSOCK_TEST_SERVER_INSTALL_DIR="${GITHUB_WORKSPACE}"
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cosock/test-http-server/releases/download/v0.1.7/cosock-test-server-installer.sh | sh
+      - name: install test deps
+        run: luarocks test --prepare
       - name: run tests
-        run: |
-          $GITHUB_WORKSPACE/bin/cosock-test-server 8080 &
-          HTTP_SERVER_PID=$!
-          $GITHUB_WORKSPACE/bin/cosock-test-server 9443 . &
-          HTTPS_SSL_SERVER_PID=$!
-          $GITHUB_WORKSPACE/bin/cosock-test-server 8443 . &
-          HTTPS_HTTP_SERVER_PID=$!
-          # ensure the ports are bound before the tests start
-          sleep 1
-          luarocks test cosock-*.rockspec
+        run: luarocks test
