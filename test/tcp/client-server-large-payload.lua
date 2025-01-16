@@ -25,6 +25,7 @@ cosock.spawn(function()
 
     -- accept a new client
     local client = assert(sock:accept())
+    print("server accepted")
 
     -- spawn handler for new client
     cosock.spawn(function()
