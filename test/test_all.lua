@@ -1,22 +1,35 @@
 local failures = false
 
-function run_test(path, ...)
+local function run_test(path, ...)
+  if os.getenv("GITHUB_ACTION") then
+    io.write("::group::")
+  end
+
   io.write("running ", path, "...")
   local args = table.concat({...}, " ")
   local cmd = string.format("timeout 5 lua %s %s 2>&1", path, args)
   local process = assert(io.popen(cmd, 'r'), "failed to start test")
   local stdout = assert(process:read("*a"))
 
-  local success, _, code = process:close()
+  local success = process:close()
 
   if success then
     print("OK")
-    return
+  else
+    print("ERROR")
+    failures = true
   end
 
-  failures = true
-  print("ERROR")
-  print(stdout)
+  if not success or os.getenv("GITHUB_ACTION") then
+    print(stdout)
+  end
+
+  if os.getenv("GITHUB_ACTION") then
+    if not success then
+      print(string.format("::error %s failed", path))
+    end
+    print("::endgroup::")
+  end
 end
 
 -- setup test HTTP(S) server
