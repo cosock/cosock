@@ -8,7 +8,7 @@ local chunks = { 1, 4096, 8191, 8192, 8193, 16384, 65535 }
 local sock = assert(socket.tcp());
 sock:bind('0.0.0.0', 0)
 sock:setoption('reuseaddr', true)
-sock:listen(1)
+sock:listen()
 
 print('listening on:', sock:getsockname())
 local addr, port = sock:getsockname()
