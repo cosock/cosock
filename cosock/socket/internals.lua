@@ -54,18 +54,6 @@ function m.passthroughbuilder(recvmethods, sendmethods)
       repeat
         local isock = self.inner_sock
         local ret = pack(isock[method](isock, unpack(inputparams, 1, inputparams.n)))
-        print("=== " ..
-          tostring(ret[1]) .. ", " ..
-          tostring(ret[2]) .. ", " ..
-          tostring(ret[3]) .. ", " ..
-          tostring(ret[4]) .. ", " ..
-          "=(" .. tostring(isock) ..  ") " .. tostring(method) ..
-          "(" ..
-          tostring(inputparams[1]) .. ", " ..
-          tostring(inputparams[2]) .. ", " ..
-          tostring(inputparams[3]) .. ", " ..
-          tostring(inputparams[4]) ..
-          ")")
         local status = ret[1]
         local err = ret[2]
         if status then
